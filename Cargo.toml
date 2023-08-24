@@ -1,0 +1,32 @@
+[package]
+name = "gtfsort"
+version = "0.1.0"
+authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
+edition = "2021"
+license = "MIT"
+description = "A rapid chr/pos/feature gtf sorter in Rust"
+homepage = "https://github.com/alejandrogzi/gtfsort"
+repository = "https://github.com/alejandrogzi/gtfsort"
+readme = "README.md"
+keywords = ["sort", "gtf", "cli", "gtfsort"]
+categories = ["command-line-utilities", "science"]
+
+[dependencies]
+clap = {version = "4.0"}
+colored = {version = "1.0.0"}
+natord = "1.0.9"
+num_cpus = "1.0"
+rayon = "1.7"
+indoc = "1.0"
+log = "0.4.14"
+
+[profile.release]
+lto = true
+
+[lib]
+name = "gtfsort"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gtfsort"
+path = "src/main.rs"
