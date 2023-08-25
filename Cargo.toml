@@ -19,6 +19,7 @@ num_cpus = "1.0"
 rayon = "1.7"
 indoc = "1.0"
 log = "0.4.14"
+simple_logger = "4.0.0"
 
 [profile.release]
 lto = true
