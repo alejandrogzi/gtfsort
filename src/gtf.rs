@@ -39,20 +39,19 @@ impl Record {
                 gp.transcript_id = Record::get_attribute("transcript_id", &fields).unwrap();
             }
         }
-        
         gp
     }
 
     fn get_attribute(attr: &str, fields: &Vec<&str>) -> Result<String, Box<dyn Error>> {
         let mut attributes = fields.last().unwrap().split("; ");
         let attribute = attributes
-                                    .find(|x| x.starts_with(attr))
-                                    .unwrap()
-                                    .split(" ")
-                                    .nth(1)
-                                    .unwrap()
-                                    .replace('"', "")
-                                    .to_string();
+                        .find(|x| x.starts_with(attr))
+                        .unwrap()
+                        .split(" ")
+                        .nth(1)
+                        .unwrap()
+                        .replace('"', "")
+                        .to_string();
         Ok(attribute)
     }
 }
