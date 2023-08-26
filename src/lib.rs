@@ -4,6 +4,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::error::Error;
 use std::time::Instant;
 
+use peak_alloc::PeakAlloc;
+
+use log::Level;
+
 use rayon::prelude::*;
 
 use indoc::indoc;
@@ -12,6 +16,10 @@ use natord::compare;
 
 mod gtf;
 use gtf::Record;
+
+
+#[global_allocator]
+static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 
 fn gtf_line_parser(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
@@ -54,10 +62,12 @@ fn gtf_line_parser(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<
                                                 "exon" => gp.exon_number.parse::<i32>().unwrap()*10,
                                                 "CDS" => gp.exon_number.parse::<i32>().unwrap()*10+1,
                                                 "5UTR" => 9998,
+                                                "five_prime_utr" => 9998,
                                                 "3UTR" => 9999, 
+                                                "three_prime_utr" => 9999,
                                                 "start_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+4,
                                                 "stop_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+5,
-                                                _ => 99999,
+                                                _ => 99999, //Selenocysteine
                                             };
                                             let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
                                             transcript_entry.insert(k, gp.line.clone());
@@ -77,14 +87,15 @@ fn gtf_line_parser(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<
 
 
 
-fn parallel_parse(file: File) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
-    
+fn parallel_parse(file: File, cpus: usize) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
     let reader = BufReader::new(file);
     let lines: Vec<String> = reader.lines().map(|l| l.expect("Could not read line")).collect();
 
-    let num_chunks = 16;
+    let num_chunks = cpus;
     let chunk_size = lines.len() / num_chunks;
     let chunks: Vec<Vec<String>> = lines.chunks(chunk_size).map(|chunk| chunk.to_vec()).collect();
+
+    log::info!("Parallel parsing: {} lines in {} chunks of {} lines", lines.len(), num_chunks, chunk_size);
 
     let jobs: Vec<HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>>> = chunks
         .par_iter()
@@ -106,8 +117,8 @@ fn parallel_parse(file: File) -> HashMap<String, BTreeMap<i32, HashMap<String, B
 
 
 
-
 fn gtf_writter(tmp: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>>, output: &str) -> Result<(), Box<dyn Error>> {
+    log::info!("Writing output file");
     let mut output = File::create(output)?;
 
     let mut chromosomes = tmp.keys().cloned().collect::<Vec<String>>();
@@ -118,7 +129,7 @@ fn gtf_writter(tmp: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<Strin
             for (_, transcript_dict) in gene_dict {
                 for (_, exon_dict) in transcript_dict {
                     for (_, line) in exon_dict {
-                        writeln!(output, "{}", line);
+                        writeln!(output, "{}", line)?;
                     }
                 }
             }
@@ -128,24 +139,35 @@ fn gtf_writter(tmp: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<Strin
 }
 
 
-pub fn gtfsort(input: &str, output: &str) {
+
+pub fn gtfsort(input: &str, output: &str, num: usize) -> (String, f32, f32) {
 
     let start = Instant::now();
+    simple_logger::init_with_level(Level::Info).unwrap();
     
     println!("{}", indoc!(
         "\n
         ##### GTFSORT #####
-        A rapid chr/pos/feature gtf sorter in Rust.\n
-        Repo: https://github.com/alejandrogzi/gtfsort
+        A rapid chr/pos/feature gtf sorter in Rust.
+        https://github.com/alejandrogzi/gtfsort
         "));
 
-    let num = num_cpus::get();
-    println!("Number of threads: {}", num);
-
+    log::info!("Reading input file");
     let gtf_unsorted = File::open(input).unwrap();
-    let gtf_sorted = parallel_parse(gtf_unsorted);
+
+    let gtf_sorted = parallel_parse(gtf_unsorted, num);
     gtf_writter(gtf_sorted, output).unwrap();
 
-    let elapsed = start.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
+    let elapsed = start.elapsed().as_secs_f32();
+    let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
+
+    log::info!("Memory usage: {} MB", peak_mem);
+    log::info!("Elapsed: {:.2?}", elapsed);
+    
+    let filename = input.split("/").last().unwrap();
+
+    std::fs::remove_file(output).unwrap();
+
+    println!("{} {} {} {}", filename, num, elapsed, peak_mem);
+    return (filename.to_string(), peak_mem, elapsed);
 }
