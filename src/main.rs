@@ -1,4 +1,4 @@
-use gtfsort::{gtfsort, benchmark};
+use gtfsort::gtfsort;
 
 use clap::{Arg, Command, ArgMatches};
 
@@ -75,7 +75,6 @@ fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
     };
 
     let _ = gtfsort(i, o, n);
-    // benchmark();
 
     Ok(())
 }
