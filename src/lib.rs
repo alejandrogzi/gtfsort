@@ -90,17 +90,17 @@ fn gtf_line_parser(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<
 fn parallel_parse(file: File, cpus: usize) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
     let reader = BufReader::new(file);
     let lines: Vec<String> = reader.lines().map(|l| l.expect("Could not read line")).collect();
+    let lines_refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
 
     let num_chunks = cpus;
     let chunk_size = lines.len() / num_chunks;
-    let chunks: Vec<Vec<String>> = lines.chunks(chunk_size).map(|chunk| chunk.to_vec()).collect();
 
     log::info!("Parallel parsing: {} lines in {} chunks of {} lines", lines.len(), num_chunks, chunk_size);
 
-    let jobs: Vec<HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>>> = chunks
-        .par_iter()
-        .map(|chunk| gtf_line_parser(chunk.clone()))
-        .collect();
+    let jobs: Vec<HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>>> = lines_refs
+    .par_chunks(chunk_size)
+    .map(|chunk| gtf_line_parser(chunk.iter().map(|&s| s.to_string()).collect()))
+    .collect();
 
     let mut temp_gtf = HashMap::new();
     for job in jobs {
@@ -129,7 +129,8 @@ fn gtf_writter(tmp: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<Strin
             for (_, transcript_dict) in gene_dict {
                 for (_, exon_dict) in transcript_dict {
                     for (_, line) in exon_dict {
-                        writeln!(output, "{}", line)?;
+                        output.write_all(line.as_bytes())?;
+                        output.write_all(b"\n")?;
                     }
                 }
             }
@@ -166,8 +167,6 @@ pub fn gtfsort(input: &str, output: &str, num: usize) -> (String, f32, f32) {
     
     let filename = input.split("/").last().unwrap();
 
-    std::fs::remove_file(output).unwrap();
-
-    println!("{} {} {} {}", filename, num, elapsed, peak_mem);
+    // std::fs::remove_file(output).unwrap();
     return (filename.to_string(), peak_mem, elapsed);
 }
