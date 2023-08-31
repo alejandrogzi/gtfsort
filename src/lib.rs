@@ -28,51 +28,48 @@ fn gtf_line_parser(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<
     for line in lines {
         if line.starts_with("#") {
             continue;
-        } else {
-            let gp = Record::new(&line);
+        } 
+        let gp = Record::new(&line);
 
-            match gp.feat.as_str() {
-                "gene" => {
-                    let chrom_entry = chrom_dict.entry(gp.chrom.clone()).or_insert_with(BTreeMap::new);
-                    let pos_entry = chrom_entry.entry(gp.pos).or_insert_with(HashMap::new);
-                    let gene_entry = pos_entry.entry(gp.gene_id.clone()).or_insert_with(BTreeMap::new);
-                    let transcript_entry = gene_entry.entry("00".to_string()).or_insert(BTreeMap::new());
-                    transcript_entry.insert(0, line);
-                }
-                "transcript" => {
-                    for (_, pos) in &mut chrom_dict {
-                        for (_, gene) in pos {
-                            for (g, transcript) in gene {
-                                if gp.gene_id == *g {
-                                    let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
-                                    transcript_entry.insert(0, gp.line.clone());
-                                }
+        match gp.feat.as_str() {
+            "gene" => {
+                let chrom_entry = chrom_dict.entry(gp.chrom).or_insert_with(BTreeMap::new);
+                let pos_entry = chrom_entry.entry(gp.pos).or_insert_with(HashMap::new);
+                let gene_entry = pos_entry.entry(gp.gene_id).or_insert_with(BTreeMap::new);
+                let transcript_entry = gene_entry.entry("00".to_string()).or_insert(BTreeMap::new());
+                transcript_entry.insert(0, line);
+            }
+            "transcript" => {
+                for (_, pos) in &mut chrom_dict {
+                    for (_, gene) in pos {
+                        for (g, transcript) in gene {
+                            if gp.gene_id == *g {
+                                let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
+                                transcript_entry.insert(0, gp.line.clone());
                             }
                         }
                     }
                 }
-                _ => {
-                    for (_, pos) in &mut chrom_dict {
-                        for (_, gene) in pos {
-                            for (g, transcript) in gene {
-                                if gp.gene_id == *g {
-                                    for (t, _) in &mut *transcript {
-                                        if gp.transcript_id == *t {
-                                            let k = match gp.feat.as_str() {
-                                                "exon" => gp.exon_number.parse::<i32>().unwrap()*10,
-                                                "CDS" => gp.exon_number.parse::<i32>().unwrap()*10+1,
-                                                "5UTR" => 9998,
-                                                "five_prime_utr" => 9998,
-                                                "3UTR" => 9999, 
-                                                "three_prime_utr" => 9999,
-                                                "start_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+4,
-                                                "stop_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+5,
-                                                _ => 99999, //Selenocysteine
-                                            };
-                                            let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
-                                            transcript_entry.insert(k, gp.line.clone());
-                                            break;
-                                        }
+            }
+            _ => {
+                for (_, pos) in &mut chrom_dict {
+                    for (_, gene) in pos {
+                        for (g, transcript) in gene {
+                            if gp.gene_id == *g {
+                                for (t, _) in &mut *transcript {
+                                    if gp.transcript_id == *t {
+                                        let k = match gp.feat.as_str() {
+                                            "exon" => gp.exon_number.parse::<i32>().unwrap()*10,
+                                            "CDS" => gp.exon_number.parse::<i32>().unwrap()*10+1,
+                                            "5UTR" | "five_prime_utr" => i32::pow(10,3)-2,
+                                            "3UTR" | "three_prime_utr" => i32::pow(10,3)-1, 
+                                            "start_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+4,
+                                            "stop_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+5,
+                                            _ => i32::pow(10,3)-1, //Selenocysteine
+                                        };
+                                        let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
+                                        transcript_entry.insert(k, gp.line.clone());
+                                        break;
                                     }
                                 }
                             }
@@ -166,7 +163,5 @@ pub fn gtfsort(input: &str, output: &str, num: usize) -> (String, f32, f32) {
     log::info!("Elapsed: {:.2?}", elapsed);
     
     let filename = input.split("/").last().unwrap();
-
-    // std::fs::remove_file(output).unwrap();
     return (filename.to_string(), peak_mem, elapsed);
 }
