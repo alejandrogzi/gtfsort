@@ -165,3 +165,41 @@ pub fn gtfsort(input: &str, output: &str, num: usize) -> (String, f32, f32) {
     let filename = input.split("/").last().unwrap();
     return (filename.to_string(), peak_mem, elapsed);
 }
+
+
+
+fn x(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
+    let mut chrom_dict: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> = HashMap::new();
+
+    for line in lines {
+        if line.starts_with("#") {
+            continue;
+        } 
+        let gp = Record::new(line.as_str());
+
+        let key = match gp.feat.as_str() {
+            "gene" => (gp.chrom, gp.pos, gp.gene_id, "00".to_string(), 0),
+            "transcript" => (gp.chrom, gp.pos, gp.gene_id.clone(), gp.transcript_id.clone(), 0),
+            "exon" | "CDS" | "start_codon" | "stop_codon" => (gp.chrom, gp.pos, gp.gene_id.clone(), gp.transcript_id.clone(), gp.exon_number.parse::<i32>().unwrap()),
+            _ => (gp.chrom, gp.pos, gp.gene_id.clone(), gp.transcript_id.clone(), 0),
+        };
+
+        let chrom_entry = chrom_dict.entry(key.0).or_insert_with(BTreeMap::new);
+        let pos_entry = chrom_entry.entry(key.1).or_insert_with(HashMap::new);
+        let gene_entry = pos_entry.entry(key.2).or_insert_with(BTreeMap::new);
+        let transcript_entry = gene_entry.entry(key.3).or_insert_with(BTreeMap::new);
+        let exon_number = match gp.feat.as_str() {
+            "gene" => key.4,
+            "transcript" => key.4,
+            "exon" => gp.exon_number.parse::<i32>().unwrap() * 10,
+            "CDS" => gp.exon_number.parse::<i32>().unwrap() * 10 + 1,
+            "5UTR" | "five_prime_utr" => i32::pow(10,3)-2,
+            "3UTR" | "three_prime_utr" => i32::pow(10,3)-1, 
+            "start_codon" => gp.exon_number.parse::<i32>().unwrap()*i32::pow(10,3)+4,
+            "stop_codon" => gp.exon_number.parse::<i32>().unwrap()*i32::pow(10,3)+5,
+            _ => i32::pow(10, 3) - 1,
+        };
+        transcript_entry.insert(exon_number, line.clone());
+    }
+    chrom_dict
+}
