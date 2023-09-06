@@ -64,7 +64,14 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
         };
     }
 
-    layer.sort_by(|a, b| compare(&a.0, &b.0));
+    layer.sort_by(|a, b| {
+        let cmp_chr = a.0.cmp(&b.0);
+        if cmp_chr == std::cmp::Ordering::Equal {
+            a.1.cmp(&b.1)
+        } else {
+            cmp_chr
+        }
+    });
 
     for i in layer {
         output.write_all(i.3.as_bytes())?;
