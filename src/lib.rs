@@ -1,167 +1,92 @@
-use std::collections::{HashMap, BTreeMap};
+use std::collections::BTreeMap;
+use std::io::{BufReader, BufRead, Write};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::collections::HashMap;
+
 use std::error::Error;
-use std::time::Instant;
-
-use peak_alloc::PeakAlloc;
-
-use log::Level;
-
-use rayon::prelude::*;
-
-use indoc::indoc;
 
 use natord::compare;
 
+use log::Level;
+
+use peak_alloc::PeakAlloc;
+
 mod gtf;
 use gtf::Record;
+
+mod ord;
+use ord::Sort;
 
 
 #[global_allocator]
 static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 
-fn gtf_line_parser(lines: Vec<String>) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
-    let mut chrom_dict: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> = HashMap::new();
+pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
 
-    for line in lines {
+    simple_logger::init_with_level(Level::Info)?;
+
+    let file = std::fs::File::open(input)?;
+    let reader = BufReader::new(file);
+    let mut output = File::create(out)?;
+
+    let start = std::time::Instant::now();
+
+    let mut layer: Vec<(String, i32, String, String)> = vec![];
+    let mut mapper: HashMap<String, Vec<String>> = HashMap::new();
+    let mut inner: HashMap<String, BTreeMap<Sort, String>> = HashMap::new();
+    let mut helper: HashMap<String, String> = HashMap::new();
+
+    for line in reader.lines() {
+        let line = line?;
+
         if line.starts_with("#") {
+            output.write_all(line.as_bytes())?;
+            output.write_all(b"\n")?;
             continue;
-        } 
-        let gp = Record::new(&line);
+        }
 
-        match gp.feat.as_str() {
+        let record = Record::new(line)?;
+
+        match record.feature() {
             "gene" => {
-                let chrom_entry = chrom_dict.entry(gp.chrom).or_insert_with(BTreeMap::new);
-                let pos_entry = chrom_entry.entry(gp.pos).or_insert_with(HashMap::new);
-                let gene_entry = pos_entry.entry(gp.gene_id).or_insert_with(BTreeMap::new);
-                let transcript_entry = gene_entry.entry("00".to_string()).or_insert(BTreeMap::new());
-                transcript_entry.insert(0, line);
+                layer.push(record.outer_layer());
             }
             "transcript" => {
-                for (_, pos) in &mut chrom_dict {
-                    for (_, gene) in pos {
-                        for (g, transcript) in gene {
-                            if gp.gene_id == *g {
-                                let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
-                                transcript_entry.insert(0, gp.line.clone());
-                            }
-                        }
-                    }
-                }
+                let (gene, transcript, line) = record.gene_to_transcript();
+                mapper.entry(gene).or_insert(Vec::new()).push(transcript.clone());
+                helper.entry(transcript).or_insert(line);
             }
             _ => {
-                for (_, pos) in &mut chrom_dict {
-                    for (_, gene) in pos {
-                        for (g, transcript) in gene {
-                            if gp.gene_id == *g {
-                                for (t, _) in &mut *transcript {
-                                    if gp.transcript_id == *t {
-                                        let k = match gp.feat.as_str() {
-                                            "exon" => gp.exon_number.parse::<i32>().unwrap()*10,
-                                            "CDS" => gp.exon_number.parse::<i32>().unwrap()*10+1,
-                                            "5UTR" | "five_prime_utr" => i32::pow(10,3)-2,
-                                            "3UTR" | "three_prime_utr" => i32::pow(10,3)-1, 
-                                            "start_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+4,
-                                            "stop_codon" => gp.exon_number.parse::<i32>().unwrap()*1000+5,
-                                            _ => i32::pow(10,3)-1, //Selenocysteine
-                                        };
-                                        let transcript_entry = transcript.entry(gp.transcript_id.clone()).or_insert_with(BTreeMap::new);
-                                        transcript_entry.insert(k, gp.line.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                let (transcript, exon_number, line) = record.inner_layer();
+                inner.entry(transcript).or_insert(BTreeMap::new()).insert(Sort::new(exon_number.as_str()), line);
+            },
+        };
+    }
+
+    layer.sort_by(|a, b| compare(&a.0, &b.0));
+
+    for i in layer {
+        output.write_all(i.3.as_bytes())?;
+        output.write_all(b"\n")?;
+        let transcripts = mapper.get(&i.2).ok_or("Error: genes with 0 transcripts are not allowed")?;
+        for j in transcripts {
+            output.write_all(helper.get(j).unwrap().as_bytes())?;
+            output.write_all(b"\n")?;
+            let exons = inner.get(j).ok_or("Error: transcripts with 0 exons are not allowed")?;
+            let joined_exons: String = exons.values().map(|value| value.to_string()).collect::<Vec<String>>().join("\n");
+            output.write_all(joined_exons.as_bytes())?;
+            output.write_all(b"\n")?;
         }
     }
-    chrom_dict
-}
-
-
-
-fn parallel_parse(file: File, cpus: usize) -> HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>> {
-    let reader = BufReader::new(file);
-    let lines: Vec<String> = reader.lines().map(|l| l.expect("Could not read line")).collect();
-    let lines_refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
-
-    let num_chunks = cpus;
-    let chunk_size = lines.len() / num_chunks;
-
-    log::info!("Parallel parsing: {} lines in {} chunks of {} lines", lines.len(), num_chunks, chunk_size);
-
-    let jobs: Vec<HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>>> = lines_refs
-    .par_chunks(chunk_size)
-    .map(|chunk| gtf_line_parser(chunk.iter().map(|&s| s.to_string()).collect()))
-    .collect();
-
-    let mut temp_gtf = HashMap::new();
-    for job in jobs {
-        for (chrom, pos_dict) in job {
-            let chrom_entry = temp_gtf.entry(chrom).or_insert_with(BTreeMap::new);
-            for (pos, gene_dict) in pos_dict {
-                let pos_entry = chrom_entry.entry(pos).or_insert_with(HashMap::new);
-                pos_entry.extend(gene_dict);
-            }
-        }
-    }
-    temp_gtf
-}
-
-
-
-fn gtf_writter(tmp: HashMap<String, BTreeMap<i32, HashMap<String, BTreeMap<String, BTreeMap<i32, String>>>>>, output: &str) -> Result<(), Box<dyn Error>> {
-    log::info!("Writing output file");
-    let mut output = File::create(output)?;
-
-    let mut chromosomes = tmp.keys().cloned().collect::<Vec<String>>();
-    chromosomes.sort_by(|a, b| compare(a, b));
-
-    for chr in chromosomes {
-        for (_, gene_dict) in tmp.get(&chr).unwrap() {
-            for (_, transcript_dict) in gene_dict {
-                for (_, exon_dict) in transcript_dict {
-                    for (_, line) in exon_dict {
-                        output.write_all(line.as_bytes())?;
-                        output.write_all(b"\n")?;
-                    }
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
-
-
-pub fn gtfsort(input: &str, output: &str, num: usize) -> (String, f32, f32) {
-
-    let start = Instant::now();
-    simple_logger::init_with_level(Level::Info).unwrap();
     
-    println!("{}", indoc!(
-        "\n
-        ##### GTFSORT #####
-        A rapid chr/pos/feature gtf sorter in Rust.
-        https://github.com/alejandrogzi/gtfsort
-        "));
-
-    log::info!("Reading input file");
-    let gtf_unsorted = File::open(input).unwrap();
-
-    let gtf_sorted = parallel_parse(gtf_unsorted, num);
-    gtf_writter(gtf_sorted, output).unwrap();
-
     let elapsed = start.elapsed().as_secs_f32();
     let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
 
     log::info!("Memory usage: {} MB", peak_mem);
     log::info!("Elapsed: {:.2?}", elapsed);
-    
-    let filename = input.split("/").last().unwrap();
-    return (filename.to_string(), peak_mem, elapsed);
+
+    Ok(out.to_string())
 }
+
+
