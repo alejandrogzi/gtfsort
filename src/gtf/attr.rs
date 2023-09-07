@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use thiserror::Error;
 
 
@@ -69,14 +70,12 @@ fn get_pair(line: &str) -> (String, String) {
 }
 
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ParseError {
     #[error("Empty line")]
     Empty,
     #[error("Invalid GTF line")]
     Invalid,
-    #[error("Failed to retrieve attributes")]
-    Attribute,
 }
 
 
