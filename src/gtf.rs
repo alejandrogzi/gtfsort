@@ -15,23 +15,22 @@ pub struct Record {
 
 impl Record {
     pub fn new(line: String) -> Result<Self, ParseError> {
-        if !line.is_empty() {
-            let fields = splitb(line)?;
-            let attributes = Attribute::parse(&fields[8])?;
-
-            Ok(Record {
-                chrom: fields[0].to_string(),
-                feat: fields[2].to_string(),
-                pos: fields[3].parse().unwrap(),
-                gene_id: attributes.gene_id().to_string(),
-                transcript_id: attributes.transcript_id().to_string(),
-                exon_number: attributes.exon_number().to_string(),
-                line: fields.join("\t"),
-        })
-        } else {
-            Err(ParseError::Empty)
+        if line.is_empty() {
+            return Err(ParseError::Empty);
         }
-        
+
+        let fields = splitb(line)?;
+        let attributes = Attribute::parse(&fields[8])?;
+
+        Ok(Record {
+            chrom: fields[0].to_string(),
+            feat: fields[2].to_string(),
+            pos: fields[3].parse().unwrap(),
+            gene_id: attributes.gene_id().to_string(),
+            transcript_id: attributes.transcript_id().to_string(),
+            exon_number: attributes.exon_number().to_string(),
+            line: fields.join("\t"),
+        })
     }
 
     pub fn outer_layer(&self) -> (String, i32, String, String) {
