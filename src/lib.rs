@@ -5,9 +5,9 @@ use std::collections::HashMap;
 
 use std::error::Error;
 
-use natord::compare;
-
 use log::Level;
+
+use indoc::indoc;
 
 use peak_alloc::PeakAlloc;
 
@@ -24,6 +24,7 @@ static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
 
+    msg();
     simple_logger::init_with_level(Level::Info)?;
 
     let file = std::fs::File::open(input)?;
@@ -36,6 +37,8 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
     let mut mapper: HashMap<String, Vec<String>> = HashMap::new();
     let mut inner: HashMap<String, BTreeMap<Sort, String>> = HashMap::new();
     let mut helper: HashMap<String, String> = HashMap::new();
+
+    log::info!("Sorting...");
 
     for line in reader.lines() {
         let line = line?;
@@ -97,3 +100,12 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
 }
 
 
+
+fn msg() {
+    println!("{}", indoc!(
+        "\n
+        ##### GTFSORT #####
+        A rapid chr/pos/feature gtf sorter in Rust.
+        Repo: https://github.com/alejandrogzi/gtfsort
+        "));
+}
