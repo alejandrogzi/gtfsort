@@ -1,7 +1,5 @@
 mod attr;
-pub use attr::Attribute;
-
-use self::attr::ParseError;
+pub use attr::*;
 
 
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd)]
