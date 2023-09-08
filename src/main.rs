@@ -40,5 +40,9 @@ fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
 
     let _ = gtfsort(i, o);
 
+    println!("{} {}", 
+    "Success:".bright_green().bold(),
+    "GTF file sorted successfully!");
+
     Ok(())
 }
