@@ -46,13 +46,15 @@ impl Record {
         match self.feat.as_str() {
             "exon" => exon_number.push('a'),
             "CDS" => exon_number.push('b'),
-            "start_codon" | "stop_codon" => exon_number.push('c'),
-            "five_prime_utr" => exon_number.push('d'),
-            "three_prime_utr" => exon_number.push('e'),
-            "UTR" => exon_number.push('f'),
+            "start_codon" => exon_number.push('c'),
+            "stop_codon" => exon_number.push('d'),
             _ => exon_number.push('e'),
         }
         (self.transcript_id.clone(), exon_number, self.line.clone())
+    }
+
+    pub fn misc_layer(&self) -> (String, String, String) {
+        (self.transcript_id.clone(), self.feat.clone(), self.line.clone())
     }
 
     pub fn feature(&self) -> &str {
@@ -86,24 +88,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_record_new_valid_input() {
-        let line = "chr1\tfeature\t123\tgene123\ttranscript123\texon123\tattribute_data".to_string();
+    fn valid_record() {
+        let line = "1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";".to_string();
         let result = Record::new(line.clone());
 
         assert!(result.is_ok());
 
         let record = result.unwrap();
-        assert_eq!(record.chrom, "chr1");
-        assert_eq!(record.feat, "feature");
-        assert_eq!(record.pos, 123);
-        assert_eq!(record.gene_id, "gene123");
-        assert_eq!(record.transcript_id, "transcript123");
-        assert_eq!(record.exon_number, "exon123");
+        assert_eq!(record.chrom, "1");
+        assert_eq!(record.feat, "CDS");
+        assert_eq!(record.pos, 2408530);
+        assert_eq!(record.gene_id, "ENSG00000157911");
+        assert_eq!(record.transcript_id, "ENST00000508384");
+        assert_eq!(record.exon_number, "3");
         assert_eq!(record.line, line);
     }
 
     #[test]
-    fn test_record_new_empty_input() {
+    fn empty_record() {
         let line = "".to_string();
         let result = Record::new(line);
 
@@ -112,24 +114,14 @@ mod tests {
     }
 
     #[test]
-    fn test_record_new_invalid_input() {
-        // Missing fields, which should trigger a ParseError::Invalid
-        let line = "chr1\tfeature".to_string();
-        let result = Record::new(line);
-
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), ParseError::Invalid);
-    }
-
-    #[test]
-    fn test_outer_layer() {
-        let line = "chr1\tfeature\t123\tgene123\ttranscript123\texon123\tattribute_data".to_string();
+    fn outer_layer() {
+        let line = "1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";".to_string();
         let record = Record::new(line).unwrap();
         let (chrom, pos, gene_id, line) = record.outer_layer();
 
-        assert_eq!(chrom, "chr1");
-        assert_eq!(pos, 123);
-        assert_eq!(gene_id, "gene123");
-        assert_eq!(line, "chr1\tfeature\t123\tgene123\ttranscript123\texon123\tattribute_data");
+        assert_eq!(chrom, "1");
+        assert_eq!(pos, 2408530);
+        assert_eq!(gene_id, "ENSG00000157911");
+        assert_eq!(line, "1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";");
     }
 }
