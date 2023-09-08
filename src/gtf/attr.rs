@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Attribute {
     gene_id: String,
     transcript_id: String,
@@ -31,8 +31,11 @@ impl Attribute {
                     start = i + 2;
                 }
             }
+
+            let gene_id = attributes.get("gene_id").ok_or(ParseError::Invalid);
+
             Ok(Attribute {
-                gene_id: attributes.get("gene_id").ok_or(ParseError::Invalid).unwrap().to_string(),
+                gene_id: gene_id?.to_string(),
                 transcript_id: attributes.get("transcript_id").unwrap_or(&"0".to_string()).to_string(),
                 exon_number: attributes.get("exon_number").unwrap_or(&"z".to_string()).to_string(),
                 exon_id: attributes.get("exon_id").unwrap_or(&"0".to_string()).to_string(),
@@ -84,8 +87,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_valid_input() {
-        let input = "gene_id \"ABC\"; transcript_id \"XYZ\"; exon_number \"1\"; exon_id \"123\"".to_string();
+    fn valid_attributes() {
+        let input = "gene_id \"ABC\"; transcript_id \"XYZ\"; exon_number \"1\"; exon_id \"123\";".to_string();
         let attr = Attribute::parse(&input).unwrap();
 
         assert_eq!(attr.gene_id(), "ABC");
@@ -95,13 +98,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_invalid_input() {
-        let input = "gene_id \"ABC\"; transcript_id \"XYZ\"; exon_number \"1\"".to_string();
-        let result = Attribute::parse(&input).unwrap();
+    fn invalid_attributes() {
+        let input = "transcript_id \"XYZ\"; exon_number \"1\";".to_string();
+        let result = Attribute::parse(&input);
 
-        assert_eq!(result.gene_id(), "ABC");
-        assert_eq!(result.transcript_id(), "XYZ");
-        assert_eq!(result.exon_number(), "1");
-        assert_eq!(result.exon_id(), "Invalid GTF line");
+        assert_eq!(result.unwrap_err(), ParseError::Invalid);
     }
 }
