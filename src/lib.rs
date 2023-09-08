@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use std::error::Error;
 
+use colored::Colorize;
+
 use log::Level;
 
 use indoc::indoc;
@@ -64,10 +66,19 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
                 mapper.entry(gene).or_insert(Vec::new()).push(transcript.clone());
                 helper.entry(transcript).or_insert(line);
             }
-            _ => {
+            "CDS" | "exon" | "start_codon" | "stop_codon" => {
                 let (transcript, exon_number, line) = record.inner_layer();
                 inner.entry(transcript).or_insert(BTreeMap::new()).insert(Sort::new(exon_number.as_str()), line);
             },
+            _ => {
+                let (transcript, feature, line) = record.misc_layer();
+                inner.entry(transcript).or_insert_with(|| BTreeMap::new()).entry(Sort::new(feature.as_str()))
+                .and_modify(|e| {
+                    e.push('\n');
+                    e.push_str(&line);
+                })
+                .or_insert(line);
+            }
         };
     }
 
@@ -109,7 +120,7 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
     let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
 
     log::info!("Memory usage: {} MB", peak_mem);
-    log::info!("Elapsed: {:.2?}", elapsed);
+    log::info!("Elapsed: {:.4?}", elapsed);
 
     Ok(out.to_string())
 }
@@ -117,10 +128,9 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
 
 
 fn msg() {
-    println!("{}", indoc!(
-        "\n
-        ##### GTFSORT #####
-        A rapid chr/pos/feature gtf sorter in Rust.
+    println!("{}\n{}",
+        "\n##### GTFSORT #####".bright_purple().bold(),
+        indoc!("A rapid chr/pos/feature gtf sorter in Rust.
         Repo: https://github.com/alejandrogzi/gtfsort
         "));
 }
@@ -131,18 +141,15 @@ mod tests {
     use super::*;
     use std::io::Read;
     
-    fn create_test_file(content: &str) -> (String, String) {
-        let ifile = "test_input.gtf";
-        let ofile = "test_output.gtf";
-
-        let mut input_file = File::create(ifile).unwrap();
+    fn create_test_file(content: &str, iname: &str, oname: &str) -> (String, String) {
+        let mut input_file = File::create(iname).unwrap();
         input_file.write_all(content.as_bytes()).unwrap();
 
-        (ifile.to_string() , ofile.to_string())
+        (iname.to_string() , oname.to_string())
     }
 
     #[test]
-    fn test_gtfsort_inner_order() {
+    fn intra_chomosome() {
         let input_content = indoc!(
             "1\tensembl_havana\tCDS\t7217861\t7217963\t.\t+\t2\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; exon_number \"3\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; protein_id \"ENSMUSP00000059261\"; protein_version \"10\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";
             1\tensembl_havana\texon\t7231116\t7231287\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; exon_number \"4\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; exon_id \"ENSMUSE00001268642\"; exon_version \"2\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";
@@ -163,11 +170,10 @@ mod tests {
             1\tensembl_havana\tthree_prime_utr\t7240107\t7243852\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";"
         );
         
+        let (ifile, ofile) = create_test_file(input_content, "intra_chomosome.gtf", "intra_chomosome.sorted.gtf");
+        let out = gtfsort(&ifile, &ofile).unwrap();
+        println!("{}", out);
 
-        let (input_file, output_file) = create_test_file(input_content);
-        let result = gtfsort(&input_file, &output_file);
-
-        assert!(result.is_ok());
 
         let sorted_content = indoc!(
             "1\tensembl_havana\tgene\t7159144\t7243852\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\";
@@ -190,7 +196,7 @@ mod tests {
         );
         
         let mut output_content = String::new();
-        let mut output_file = File::open(&output_file).expect("Failed to open output file");
+        let mut output_file = File::open(&ofile).expect("Failed to open output file");
 
         output_file
         .read_to_string(&mut output_content)
@@ -198,12 +204,12 @@ mod tests {
 
         assert_eq!(sorted_content, output_content);
 
-        teardown()
+        teardown(ifile, ofile)
     }
 
 
     #[test]
-    fn test_gtfsort_outer_order() {
+    fn inter_chromosome() {
         let input_content = indoc!(
             "chr2\tbed2gtf\tCDS\t164694269\t164695836\t.\t-\t2\tgene_id \"ENSG00000082438\"; transcript_id \"ENST00000375458\"; exon_number \"11\"; exon_id \"ENST00000375458.11\";
             chr2\tbed2gtf\texon\t164692221\t164692397\t.\t-\t.\tgene_id \"ENSG00000082438\"; transcript_id \"ENST00000375458\"; exon_number \"12\"; exon_id \"ENST00000375458.12\";
@@ -238,11 +244,8 @@ mod tests {
         );
         
 
-        let (input_file, output_file) = create_test_file(input_content);
-        let result = gtfsort(&input_file, &output_file);
-
-        println!("{:?}", result);
-        assert!(result.is_ok());
+        let (ifile, ofile) = create_test_file(input_content, "inter_chomosome.gtf", "inter_chomosome.sorted.gtf");
+        let _ = gtfsort(&ifile, &ofile);
 
         let sorted_content = indoc!(
             "chr1\tbed2gtf\tgene\t166840089\t166854473\t.\t+\t.\tgene_id \"ENSG00000143157\";
@@ -278,7 +281,7 @@ mod tests {
         );
         
         let mut output_content = String::new();
-        let mut output_file = File::open(&output_file).expect("Failed to open output file");
+        let mut output_file = File::open(&ofile).expect("Failed to open output file");
 
         output_file
         .read_to_string(&mut output_content)
@@ -286,25 +289,69 @@ mod tests {
 
         assert_eq!(sorted_content, output_content);
 
-        teardown()
+        teardown(ifile, ofile)
+    }
+
+    #[test]
+    fn misc_features() {
+        let input_content = indoc!(
+            "1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\tstart_codon\t2408617\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\tfive_prime_utr\t2413597\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\tfive_prime_utr\t2410371\t2410451\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\tensembl_havana\tgene\t2403964\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\";
+            1\thavana\ttranscript\t2408530\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\texon\t2413597\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"1\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00002053109\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\texon\t2410371\t2410451\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"2\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00003544845\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\texon\t2408530\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00002039097\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+            1\thavana\tfive_prime_utr\t2408620\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";"
+        );
+        
+
+        let (ifile, ofile) = create_test_file(input_content, "misc_features.gtf", "misc_features.sorted.gtf");
+        let _ = gtfsort(&ifile, &ofile);
+
+        let sorted_content = indoc!(
+        "1\tensembl_havana\tgene\t2403964\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\";
+        1\thavana\ttranscript\t2408530\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\texon\t2413597\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"1\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00002053109\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\texon\t2410371\t2410451\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"2\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00003544845\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\texon\t2408530\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00002039097\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\tstart_codon\t2408617\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\tfive_prime_utr\t2413597\t2413797\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\tfive_prime_utr\t2410371\t2410451\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
+        1\thavana\tfive_prime_utr\t2408620\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";"
+        );
+        
+        let mut output_content = String::new();
+        let mut output_file = File::open(&ofile).expect("Failed to open output file");
+
+        output_file
+        .read_to_string(&mut output_content)
+        .expect("Failed to read output file");
+
+        assert_eq!(sorted_content, output_content);
+
+        teardown(ifile, ofile)
     }
 
 
     #[test]
-    fn test_gtfsort_empty_input() {
+    fn empty_input() {
 
         let input_content = "";
-        let (input_file, output_file) = create_test_file(input_content);
+        let (ifile, ofile) = create_test_file(input_content, "empty_input.gtf", "empty_input.sorted.gtf");
 
-        let result = gtfsort(&input_file, &output_file);
+        let result = gtfsort(&ifile, &ofile);
 
         assert!(result.is_err());
 
-        teardown()
+        std::fs::remove_file(ifile).unwrap();
     }
 
-    fn teardown() {
-        std::fs::remove_file("test_input.gtf").unwrap();
-        std::fs::remove_file("test_output.gtf").unwrap();
+    fn teardown(ifile: String, ofile: String) {
+        std::fs::remove_file(ifile).unwrap();
+        std::fs::remove_file(ofile).unwrap();
     }
 }
