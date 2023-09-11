@@ -11,6 +11,7 @@ use log::Level;
 
 use indoc::indoc;
 
+use natord::compare;
 use peak_alloc::PeakAlloc;
 
 mod gtf;
@@ -83,7 +84,7 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
     }
 
     layer.sort_by(|a, b| {
-        let cmp_chr = a.0.cmp(&b.0);
+        let cmp_chr = compare(&a.0, &b.0);
         if cmp_chr == std::cmp::Ordering::Equal {
             a.1.cmp(&b.1)
         } else {
