@@ -12,7 +12,7 @@ fn main() {
     let matches = Command::new("gtfsort")
         .version("0.1.0")
         .author("Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>")
-        .about("...")
+        .about("An optimized chr/pos/feature GTF2.5-3 sorter using a lexicographic-based index ordering algorithm written in Rust.")
         .arg(Arg::new("i")
             .index(1)
             .required(true)
@@ -22,7 +22,7 @@ fn main() {
             .index(2)
             .required(true)
             .value_name("OUTPUT")
-            .help("Output gtf file"))
+            .help("Output sorted gtf file"))
         .get_matches();
 
     if let Some(err) = run(matches).err() {
