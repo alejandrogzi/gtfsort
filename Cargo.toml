@@ -1,6 +1,6 @@
 [package]
 name = "gtfsort"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
