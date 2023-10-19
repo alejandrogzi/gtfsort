@@ -6,7 +6,9 @@
 # gtfsort
 An optimized chr/pos/feature GTF 2.5-3 sorter using a lexicographically-based index ordering algorithm written in Rust.
 
-<img width=700 align="center" src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/overview.png">
+<p align="center">
+    <img width=700 align="center" src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/overview.png">
+</p>
 
 While current tools (most of them GFF3-focused) have been recommended for sorting GTF files, none are directed towards chr/pos/feature ordering. This approach ensures custom sorting directionality, which is useful for reducing computation times in tools that work with sorted GTF files. Furthermore, it provides a friendly and organized visualization of gene structures (gene -> transcript -> CDS/exon -> start/stop -> UTR/Sel), allowing users to search for features more efficiently.
 
@@ -125,7 +127,9 @@ In this comparative analysis, gtfsort demonstrated remarkable efficiency, showca
 
 Furthermore, it is noteworthy that the memory allocation required for sorting files remained conservative in three of the tools evaluated: GNU (both single and multi-core), gff3sort, and gtfsort. The memory utilization for the largest file did not exceed 2.3 Gbs, even when handling substantial datasets (up to 1.6 Gbs in size).
 
-<img align=center width=650 src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/benchmark.png">
+<p align="center">
+    <img align=center width=600 src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/benchmark.png">
+</p>
 
 From the suite of tools employed in the preceding step, only three assert to incorporate a feature sorting step [5]: gff3sort, AGAT, and gtfsort. Gff3sort, a Perl-based program tailored for sorting GFF3/GTF files, is adept at generating results compatible with tabix tools [4]. It employs a topological algorithm to sequence features after an initial two-block sorting phase (first by chromosome, then by position). AGAT, an analysis toolkit also scripted in Perl, features a GFF3/GTF sorting tool within the `agat_convert_sp_gxf2gxf.pl` script [3], likewise employing a topological sorting approach.
 
@@ -136,9 +140,9 @@ Although computation time is an important feature, the actual sorting output wou
 - Chromosomal ordering: Only gtfsort and gff3sort presented an intuitive ordering (starting with chromosome 1 and ending with chromosome X). AGAT fails here, locating MT and sex chromosomes at the beginning.
 - Feature ordering: gff3sort (--precise --chr_order natural) completely fails to present an ordered structure of features (something that is quickly perceived by the exon 5 of the first transcript at the beginning of the block). AGAT and gtfsort, conversely, do exhibit an intuitive structure order: gene -> transcript -> features. AGAT presents 2 blocks per transcript, all CDS after all exons with start/stop codons and UTRs at the end. gtfsort, on the other hand, adopted a distinct approach presenting pairs or triplets of features in conjunction with their respective exon numbers, sorted in descending order, even for sequences on negative strands. UTRs were consistently positioned at the conclusion of the sequence, enabling a natural and rapid comprehension of the information associated with a given exon (exon/CDS/start/stop).
 
-
-<img align=center height=750 src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/order.png">
-
+<p align="center">
+    <img align=center height=750 src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/order.png">
+</p>
 
 - All the values presented herein represent the average of five consecutive iterations for each species, encompassing both time and memory usage.
 
