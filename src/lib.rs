@@ -1,7 +1,49 @@
+//! # gtfsort
+//! A fast and efficient GTF sorter tool.
+//!
+//! ## Overview
+//! `gtfsort` is a rapid chr/pos/feature GTF2.5-3 sorter using a lexicographic-based
+//! index ordering algorithm written in Rust. This tool is intended to be used as a
+//! library, but it can also be used as a standalone command-line tool. The primary
+//! goal of this tool is to sort GTF files by chromosome, position and feature in a fast
+//! and memory-efficient way.
+//!
+//! to include gtfsort as a library and use it within your project follow these steps:
+//! 1. include `gtfsort = 0.1.1` or `gtfsort = "*"` under `[dependencies]` in the `Cargo.toml` file
+//!
+//! 2. the library name is `gtfsort`, to use it just write:
+//!
+//! ``` rust
+//! use gtfsort::gtfsort;
+//! ```
+//! or
+//! ``` rust
+//! use gtfsort::*;
+//! ```
+//!
+//! 3. invoke
+//! ``` rust
+//! let gtf = gtfsort(input: &String, output: &String)
+//! ```
+//!
+//! To use `gtfsort` as a standalone command-line tool, follow these steps:
+//!
+//! 1. install Rust from [here](https://www.rust-lang.org/tools/install)
+//!
+//! 2. install `gtfsort` by running:
+//! ``` bash
+//! cargo install gtfsort
+//! ```
+//!
+//! 3. run `gtfsort` by typing:
+//! ``` bash
+//! gtfsort <input> <output>
+//! ```
+
 use std::collections::BTreeMap;
-use std::io::{BufReader, BufRead, Write};
-use std::fs::File;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
 
 use std::error::Error;
 
@@ -20,14 +62,11 @@ use gtf::Record;
 mod ord;
 use ord::Sort;
 
-
 #[global_allocator]
 static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
-
 pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
-
-    if std::fs::metadata(input)?.len() == 0{
+    if std::fs::metadata(input)?.len() == 0 {
         Err("Error: input file is empty")?;
     }
 
@@ -64,21 +103,30 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
             }
             "transcript" => {
                 let (gene, transcript, line) = record.gene_to_transcript();
-                mapper.entry(gene).or_insert(Vec::new()).push(transcript.clone());
+                mapper
+                    .entry(gene)
+                    .or_insert(Vec::new())
+                    .push(transcript.clone());
                 helper.entry(transcript).or_insert(line);
             }
             "CDS" | "exon" | "start_codon" | "stop_codon" => {
                 let (transcript, exon_number, line) = record.inner_layer();
-                inner.entry(transcript).or_insert(BTreeMap::new()).insert(Sort::new(exon_number.as_str()), line);
-            },
+                inner
+                    .entry(transcript)
+                    .or_insert(BTreeMap::new())
+                    .insert(Sort::new(exon_number.as_str()), line);
+            }
             _ => {
                 let (transcript, feature, line) = record.misc_layer();
-                inner.entry(transcript).or_insert_with(|| BTreeMap::new()).entry(Sort::new(feature.as_str()))
-                .and_modify(|e| {
-                    e.push('\n');
-                    e.push_str(&line);
-                })
-                .or_insert(line);
+                inner
+                    .entry(transcript)
+                    .or_insert_with(|| BTreeMap::new())
+                    .entry(Sort::new(feature.as_str()))
+                    .and_modify(|e| {
+                        e.push('\n');
+                        e.push_str(&line);
+                    })
+                    .or_insert(line);
             }
         };
     }
@@ -92,30 +140,37 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
         }
     });
 
-    let mut track = true; 
+    let mut track = true;
 
     for i in layer {
         if !track {
             output.write_all(b"\n")?;
         } else {
-            track = false; 
+            track = false;
         }
-    
+
         output.write_all(i.3.as_bytes())?;
         output.write_all(b"\n")?;
-        let transcripts = mapper.get(&i.2).ok_or("Error: genes with 0 transcripts are not allowed")?;
+        let transcripts = mapper
+            .get(&i.2)
+            .ok_or("Error: genes with 0 transcripts are not allowed")?;
         for (index, j) in transcripts.iter().enumerate() {
             output.write_all(helper.get(j).unwrap().as_bytes())?;
             output.write_all(b"\n")?;
-            let exons = inner.get(j).ok_or("Error: transcripts with 0 exons are not allowed")?;
-            let joined_exons: String = exons.values().map(|value| value.to_string()).collect::<Vec<String>>().join("\n");
+            let exons = inner
+                .get(j)
+                .ok_or("Error: transcripts with 0 exons are not allowed")?;
+            let joined_exons: String = exons
+                .values()
+                .map(|value| value.to_string())
+                .collect::<Vec<String>>()
+                .join("\n");
             output.write_all(joined_exons.as_bytes())?;
             if index < transcripts.len() - 1 {
                 output.write_all(b"\n")?;
             }
         }
     }
-    
 
     let elapsed = start.elapsed().as_secs_f32();
     let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
@@ -126,27 +181,28 @@ pub fn gtfsort(input: &String, out: &String) -> Result<String, Box<dyn Error>> {
     Ok(out.to_string())
 }
 
-
-
 fn msg() {
-    println!("{}\n{}",
+    println!(
+        "{}\n{}",
         "\n##### GTFSORT #####".bright_purple().bold(),
-        indoc!("A rapid chr/pos/feature gtf sorter in Rust.
+        indoc!(
+            "A rapid chr/pos/feature gtf sorter in Rust.
         Repo: https://github.com/alejandrogzi/gtfsort
-        "));
+        "
+        )
+    );
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Read;
-    
+
     fn create_test_file(content: &str, iname: &str, oname: &str) -> (String, String) {
         let mut input_file = File::create(iname).unwrap();
         input_file.write_all(content.as_bytes()).unwrap();
 
-        (iname.to_string() , oname.to_string())
+        (iname.to_string(), oname.to_string())
     }
 
     #[test]
@@ -170,11 +226,14 @@ mod tests {
             1\tensembl_havana\texon\t7190418\t7190839\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; exon_number \"2\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; exon_id \"ENSMUSE00000553965\"; exon_version \"3\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";
             1\tensembl_havana\tthree_prime_utr\t7240107\t7243852\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";"
         );
-        
-        let (ifile, ofile) = create_test_file(input_content, "intra_chomosome.gtf", "intra_chomosome.sorted.gtf");
+
+        let (ifile, ofile) = create_test_file(
+            input_content,
+            "intra_chomosome.gtf",
+            "intra_chomosome.sorted.gtf",
+        );
         let out = gtfsort(&ifile, &ofile).unwrap();
         println!("{}", out);
-
 
         let sorted_content = indoc!(
             "1\tensembl_havana\tgene\t7159144\t7243852\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\";
@@ -195,19 +254,18 @@ mod tests {
             1\tensembl_havana\tfive_prime_utr\t7159144\t7159440\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";
             1\tensembl_havana\tthree_prime_utr\t7240107\t7243852\t.\t+\t.\tgene_id \"ENSMUSG00000051285\"; gene_version \"18\"; transcript_id \"ENSMUST00000061280\"; transcript_version \"17\"; gene_name \"Pcmtd1\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"Pcmtd1-201\"; transcript_source \"ensembl_havana\"; transcript_biotype \"protein_coding\"; tag \"CCDS\"; ccds_id \"CCDS35508\"; tag \"basic\"; tag \"Ensembl_canonical\"; transcript_support_level \"1 (assigned to previous version 16)\";"
         );
-        
+
         let mut output_content = String::new();
         let mut output_file = File::open(&ofile).expect("Failed to open output file");
 
         output_file
-        .read_to_string(&mut output_content)
-        .expect("Failed to read output file");
+            .read_to_string(&mut output_content)
+            .expect("Failed to read output file");
 
         assert_eq!(sorted_content, output_content);
 
         teardown(ifile, ofile)
     }
-
 
     #[test]
     fn inter_chromosome() {
@@ -243,9 +301,12 @@ mod tests {
             chr1\tbed2gtf\texon\t166846612\t166846738\t.\t+\t.\tgene_id \"ENSG00000143157\"; transcript_id \"ENST00000367875\"; exon_number \"3\"; exon_id \"ENST00000367875.3\";
             chr1\tbed2gtf\tCDS\t166846612\t166846738\t.\t+\t0\tgene_id \"ENSG00000143157\"; transcript_id \"ENST00000367875\"; exon_number \"3\"; exon_id \"ENST00000367875.3\";"
         );
-        
 
-        let (ifile, ofile) = create_test_file(input_content, "inter_chomosome.gtf", "inter_chomosome.sorted.gtf");
+        let (ifile, ofile) = create_test_file(
+            input_content,
+            "inter_chomosome.gtf",
+            "inter_chomosome.sorted.gtf",
+        );
         let _ = gtfsort(&ifile, &ofile);
 
         let sorted_content = indoc!(
@@ -280,13 +341,13 @@ mod tests {
             chr2\tbed2gtf\tCDS\t164685949\t164686032\t.\t-\t0\tgene_id \"ENSG00000082438\"; transcript_id \"ENST00000375458\"; exon_number \"13\"; exon_id \"ENST00000375458.13\";
             chr2\tbed2gtf\tthree_prime_utr\t164680188\t164685945\t.\t-\t0\tgene_id \"ENSG00000082438\"; transcript_id \"ENST00000375458\";"
         );
-        
+
         let mut output_content = String::new();
         let mut output_file = File::open(&ofile).expect("Failed to open output file");
 
         output_file
-        .read_to_string(&mut output_content)
-        .expect("Failed to read output file");
+            .read_to_string(&mut output_content)
+            .expect("Failed to read output file");
 
         assert_eq!(sorted_content, output_content);
 
@@ -307,9 +368,12 @@ mod tests {
             1\thavana\texon\t2408530\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; exon_id \"ENSE00002039097\"; exon_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
             1\thavana\tfive_prime_utr\t2408620\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";"
         );
-        
 
-        let (ifile, ofile) = create_test_file(input_content, "misc_features.gtf", "misc_features.sorted.gtf");
+        let (ifile, ofile) = create_test_file(
+            input_content,
+            "misc_features.gtf",
+            "misc_features.sorted.gtf",
+        );
         let _ = gtfsort(&ifile, &ofile);
 
         let sorted_content = indoc!(
@@ -324,25 +388,24 @@ mod tests {
         1\thavana\tfive_prime_utr\t2410371\t2410451\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";
         1\thavana\tfive_prime_utr\t2408620\t2408858\t.\t-\t.\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";"
         );
-        
+
         let mut output_content = String::new();
         let mut output_file = File::open(&ofile).expect("Failed to open output file");
 
         output_file
-        .read_to_string(&mut output_content)
-        .expect("Failed to read output file");
+            .read_to_string(&mut output_content)
+            .expect("Failed to read output file");
 
         assert_eq!(sorted_content, output_content);
 
         teardown(ifile, ofile)
     }
 
-
     #[test]
     fn empty_input() {
-
         let input_content = "";
-        let (ifile, ofile) = create_test_file(input_content, "empty_input.gtf", "empty_input.sorted.gtf");
+        let (ifile, ofile) =
+            create_test_file(input_content, "empty_input.gtf", "empty_input.sorted.gtf");
 
         let result = gtfsort(&ifile, &ofile);
 

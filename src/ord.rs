@@ -1,5 +1,5 @@
-use std::cmp::Ordering;
 use natord::compare;
+use std::cmp::Ordering;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd)]
 pub struct Sort {

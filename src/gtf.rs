@@ -1,7 +1,6 @@
 mod attr;
 pub use attr::*;
 
-
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Record {
     chrom: String,
@@ -34,11 +33,20 @@ impl Record {
     }
 
     pub fn outer_layer(&self) -> (String, i32, String, String) {
-        (self.chrom.clone(), self.pos, self.gene_id.clone(), self.line.clone())
+        (
+            self.chrom.clone(),
+            self.pos,
+            self.gene_id.clone(),
+            self.line.clone(),
+        )
     }
 
     pub fn gene_to_transcript(&self) -> (String, String, String) {
-        (self.gene_id.clone(), self.transcript_id.clone(), self.line.clone())
+        (
+            self.gene_id.clone(),
+            self.transcript_id.clone(),
+            self.line.clone(),
+        )
     }
 
     pub fn inner_layer(&self) -> (String, String, String) {
@@ -54,15 +62,17 @@ impl Record {
     }
 
     pub fn misc_layer(&self) -> (String, String, String) {
-        (self.transcript_id.clone(), self.feat.clone(), self.line.clone())
+        (
+            self.transcript_id.clone(),
+            self.feat.clone(),
+            self.line.clone(),
+        )
     }
 
     pub fn feature(&self) -> &str {
         &self.feat
     }
-
 }
-
 
 fn splitb(line: String) -> Result<Vec<String>, ParseError> {
     let bytes = line.as_bytes().iter().enumerate();
@@ -81,7 +91,6 @@ fn splitb(line: String) -> Result<Vec<String>, ParseError> {
     entries.push(line[start..].to_string());
     Ok(entries)
 }
-
 
 #[cfg(test)]
 mod tests {
