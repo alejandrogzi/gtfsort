@@ -1,6 +1,6 @@
 [package]
 name = "gtfsort"
-version = "0.1.1"
+version = "0.2.1"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
@@ -12,14 +12,16 @@ keywords = ["sort", "gtf", "cli", "gtfsort"]
 categories = ["command-line-utilities", "science"]
 
 [dependencies]
-clap = {version = "4.0"}
-colored = {version = "1.0.0"}
+clap = {version = "4.0", features = ["derive"]}
+colored = {version = "1.9.4"}
 natord = "1.0.9"
-indoc = "1.0"
+indoc = "2.0.4"
 log = "0.4.14"
 simple_logger = "4.0.0"
-peak_alloc = "0.2.0"
 thiserror = "1.0"
+rayon = "1.8.0"
+num_cpus = "1.16.0"
+libc = "0.2.151"
 
 [profile.release]
 lto = true
