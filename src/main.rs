@@ -21,8 +21,7 @@
 //! gtfsort <input> <output> [<threads>]
 //! ```
 
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -90,12 +89,20 @@ fn main() {
     }
 
     if std::fs::metadata(&args.input).unwrap().len() == 0 {
-        eprintln!("Error: input file is empty");
+        println!(
+            "{} {}",
+            "Error:".bright_red().bold(),
+            "Input file is empty!"
+        );
         std::process::exit(1);
     }
 
     if args.input == args.output {
-        eprintln!("Error: input and output files must be different");
+        println!(
+            "{} {}",
+            "Error:".bright_red().bold(),
+            "Input and output files must be different!"
+        );
         std::process::exit(1);
     }
 
