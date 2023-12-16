@@ -7,29 +7,33 @@
 An optimized chr/pos/feature GTF 2.5-3 sorter using a lexicographically-based index ordering algorithm written in Rust.
 
 <p align="center">
-    <img width=700 align="center" src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/overview.png">
+    <img width=700 align="center" src="./supp/overview.png">
 </p>
 
 While current tools (most of them GFF3-focused) have been recommended for sorting GTF files, none are directed towards chr/pos/feature ordering. This approach ensures custom sorting directionality, which is useful for reducing computation times in tools that work with sorted GTF files. Furthermore, it provides a friendly and organized visualization of gene structures (gene -> transcript -> CDS/exon -> start/stop -> UTR/Sel), allowing users to search for features more efficiently.
 
 ## Usage
 ``` rust
-Usage: gtfsort[EXE] --i <GTF> --o <OUTPUT>
+Usage: gtfsort -i <GTF> -o <OUTPUT> [-t <THREADS>]
 
 Arguments:
-    --i <GTF>: unsorted GTF file
-    --o <OUTPUT>: sorted GTF file
+    -i, --input <GTF>: unsorted GTF file
+    -o, --output <OUTPUT>: sorted GTF file
 
 Options:
+    -t, --threads <THREADS>: number of threads [default: your max ncpus]
     --help: print help
     --version: print version
 ```
 
-> What's new on v.0.1.1
+> What's new on v.0.2.1
 >
-> - GENCODE bug (quotation) now has been resolved!
-> - Two more tests have been implemented to check the above improvement
-> - Some typos and syntax have been corrected from all files
+> - Now gtfsort is x2 faster!
+> - A parallel aproach has been implemented to leverage all the power Rust can provide
+> - Some additional args error handlers have been added
+> - A quick benchmark indicates that now gtfsort takes **6 seconds** to sort the complete *Homo sapiens* GENCODE 44 GTF (1.5GB)
+> - The library functionality has been disabled for this release (gtfsort only works as a CLI now)
+> - A nf-module and a galaxy tool are coming!
 
 
 #### crate: [https://crates.io/crates/gtfsort](https://crates.io/crates/gtfsort)
@@ -92,23 +96,6 @@ to install gtfsort on your system follow this steps:
 2. run `cargo install gtfsort` (make sure `~/.cargo/bin` is in your `$PATH` before running it)
 4. use `gtfsort` with the required arguments
 
-## Library
-to include gtfsort as a library and use it within your project follow these steps:
-1. include `gtfsort = 0.1.1` or `gtfsort = "*"` under `[dependencies]` in the `Cargo.toml` file
-2. the library name is `gtfsort`, to use it just write:
-
-    ``` rust
-    use gtfsort::gtfsort; 
-    ```
-    or 
-    ``` rust
-    use gtfsort::*;
-    ```
-3. invoke
-    ``` rust 
-    let gtf = gtfsort(input: &String, output: &String)
-    ```
-
 ## Build
 to build gtfsort from this repo, do:
 
@@ -119,6 +106,8 @@ to build gtfsort from this repo, do:
 
 ## Benchmark
 
+> Note that this benchmark is outdated, the current implementation (v.0.2.1) is x2 faster than the previous one (v.0.1.1). Now, gtfsort can sort the complete *Homo sapiens* GENCODE 44 GTF (1.5GB) in **6 seconds**. It also can sort the complete *Cyprinus carpio carpio* GTF (1.9GB) in **7 seconds** compared to the previous implementation that took **~14-15 seconds**.
+
 To assess the efficiency and results of gtfsort, two main benchmarks were conducted. First, I ran gtfsort over the whole Ensembl Animalia GTF3 dataset (110 release; 306 species) [2]. Here, gtfsort demonstrated both of their main attributes: speed and efficiency. This tool is able to sort a 1.9 GB GTF file (*Cyprinus carpio carpio*) in 12 seconds with high accuracy using less than 2.5 GB of RAM. Species of common interest are highlighted. 
 
 Secondly, I conducted a comparative analysis of the gtfsort utility in relation to several existing software tools: GNU v.8.25 (both in single and multi-core configurations), AGAT (utilizing the --gff flag for both complete and partial parsing phases) [3], gff3sort (with specific options, including --precise and --chr_order natural) [4], and rsort (an unpublished multi-core Rust implementation with nested data structures). This comprehensive evaluation encompassed a diverse array of biological domains, spanning bacteria, fungi, insects, mammals, and more. To ensure a robust assessment, I employed nine common species: *Homo sapiens*, *Mus musculus*, *Canis lupus familiaris*, *Gallus gallus*, *Danio rerio*, *Salmo salar*, *Crocodylus porosus*, *Drosophila melanogaster* and *Saccharomyces cerevisiae*. 
@@ -128,7 +117,7 @@ In this comparative analysis, gtfsort demonstrated remarkable efficiency, showca
 Furthermore, it is noteworthy that the memory allocation required for sorting files remained conservative in three of the tools evaluated: GNU (both single and multi-core), gff3sort, and gtfsort. The memory utilization for the largest file did not exceed 2.3 Gbs, even when handling substantial datasets (up to 1.6 Gbs in size).
 
 <p align="center">
-    <img align=center width=600 src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/benchmark.png">
+    <img align=center width=600 src="./supp/benchmark.png">
 </p>
 
 From the suite of tools employed in the preceding step, only three assert to incorporate a feature sorting step [5]: gff3sort, AGAT, and gtfsort. Gff3sort, a Perl-based program tailored for sorting GFF3/GTF files, is adept at generating results compatible with tabix tools [4]. It employs a topological algorithm to sequence features after an initial two-block sorting phase (first by chromosome, then by position). AGAT, an analysis toolkit also scripted in Perl, features a GFF3/GTF sorting tool within the `agat_convert_sp_gxf2gxf.pl` script [3], likewise employing a topological sorting approach.
@@ -141,7 +130,7 @@ Although computation time is an important feature, the actual sorting output wou
 - Feature ordering: gff3sort (--precise --chr_order natural) completely fails to present an ordered structure of features (something that is quickly perceived by the exon 5 of the first transcript at the beginning of the block). AGAT and gtfsort, conversely, do exhibit an intuitive structure order: gene -> transcript -> features. AGAT presents 2 blocks per transcript, all CDS after all exons with start/stop codons and UTRs at the end. gtfsort, on the other hand, adopted a distinct approach presenting pairs or triplets of features in conjunction with their respective exon numbers, sorted in descending order, even for sequences on negative strands. UTRs were consistently positioned at the conclusion of the sequence, enabling a natural and rapid comprehension of the information associated with a given exon (exon/CDS/start/stop).
 
 <p align="center">
-    <img align=center height=750 src="https://github.com/alejandrogzi/gtfsort/blob/master/supp/order.png">
+    <img align=center height=750 src="./supp/order.png">
 </p>
 
 - All the values presented herein represent the average of five consecutive iterations for each species, encompassing both time and memory usage.
