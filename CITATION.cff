@@ -1,0 +1,39 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: gtfsort
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Alejandro
+    family-names: Gonzales-Irribarren
+    email: jose.gonzalesdezavala1@unmsm.edu.pe
+    affiliation: >-
+      Laboratorio Internacional de Investigación sobre el
+      Genoma Humano, Universidad Nacional Autónoma de
+      México, Santiago de Querétaro, 76230, México
+    orcid: 'https://orcid.org/0000-0001-7010-8146'
+identifiers:
+  - type: url
+    value: 'https://github.com/alejandrogzi/gtfsort'
+repository-code: 'https://github.com/alejandrogzi/gtfsort'
+url: 'https://github.com/alejandrogzi/gtfsort'
+abstract: >-
+  While current tools (most of them GFF3-focused) have been
+  recommended for sorting GTF files, none are directed
+  towards chr/pos/feature ordering. This approach ensures
+  custom sorting directionality, which is useful for
+  reducing computation times in tools that work with sorted
+  GTF files. Furthermore, it provides a friendly and
+  organized visualization of gene structures (gene ->
+  transcript -> CDS/exon -> start/stop -> UTR/Sel), allowing
+  users to search for features more efficiently.
+keywords:
+  - sort-algorithm
+  - gtf
+  - gene-annotation
+license: MIT
+version: 0.2.1
