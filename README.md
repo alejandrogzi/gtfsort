@@ -107,7 +107,18 @@ to build gtfsort from this repo, do:
 
 1. get rust (as described above)
 2. run `git clone https://github.com/alejandrogzi/gtfsort.git && cd gtfsort`
-3. run `cargo run --release <GTF> <OUTPUT>`(arguments are positional, so you do not need to specify --i/--o)
+3. run `cargo run --release -- -i <GTF> -o <OUTPUT>`
+
+## Container image
+to build the development container image:
+1. run `git clone https://github.com/alejandrogzi/gtfsort.git && cd gtfsort`
+2. initialize docker with `start docker` or `systemctl start docker`
+3. build the image `docker image build --tag gtfsort .`
+4. run `docker run --rm -v "[dir_where_your_gtf_is]:/dir" gtfsort -i /dir/<INPUT> -o /dir/<OUTPUT>`
+
+## Conda [TO BE APPROVED]
+to use gtfsort through Conda just:
+1. `conda install gtfsort -c bioconda` or `conda create -n gtfsort -c bioconda gtfsort`
 
 
 ## Benchmark
