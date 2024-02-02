@@ -1,7 +1,8 @@
 ![version-badge](https://img.shields.io/badge/version-0.2.1-green)
 ![Crates.io](https://img.shields.io/crates/v/gtfsort)
 ![GitHub](https://img.shields.io/github/license/alejandrogzi/gtfsort?color=blue)
-
+![Crates.io Total Downloads](https://img.shields.io/crates/d/gtfsort)
+![Conda Platform](https://img.shields.io/conda/pn/bioconda/gtfsort)
 
 # gtfsort
 An optimized chr/pos/feature GTF 2.5-3 sorter using a lexicographically-based index ordering algorithm written in Rust.
@@ -116,7 +117,7 @@ to build the development container image:
 3. build the image `docker image build --tag gtfsort .`
 4. run `docker run --rm -v "[dir_where_your_gtf_is]:/dir" gtfsort -i /dir/<INPUT> -o /dir/<OUTPUT>`
 
-## Conda [TO BE APPROVED]
+## Conda
 to use gtfsort through Conda just:
 1. `conda install gtfsort -c bioconda` or `conda create -n gtfsort -c bioconda gtfsort`
 
