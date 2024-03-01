@@ -1,6 +1,6 @@
 [package]
 name = "gtfsort"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
 edition = "2021"
 license = "MIT"
@@ -22,6 +22,8 @@ thiserror = "1.0"
 rayon = "1.8.0"
 num_cpus = "1.16.0"
 libc = "0.2.151"
+hashbrown = {version="0.14", features=["rayon"]}
+dashmap = "5.5"
 
 [profile.release]
 lto = true
