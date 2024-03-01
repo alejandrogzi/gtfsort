@@ -1,17 +1,20 @@
-![version-badge](https://img.shields.io/badge/version-0.2.1-green)
+![version-badge](https://img.shields.io/badge/version-0.2.2-green)
 ![Crates.io](https://img.shields.io/crates/v/gtfsort)
 ![GitHub](https://img.shields.io/github/license/alejandrogzi/gtfsort?color=blue)
 ![Crates.io Total Downloads](https://img.shields.io/crates/d/gtfsort)
 ![Conda Platform](https://img.shields.io/conda/pn/bioconda/gtfsort)
 
 # gtfsort
-An optimized chr/pos/feature GTF 2.5-3 sorter using a lexicographically-based index ordering algorithm written in Rust.
+An optimized chr/pos/feature GTF/GFF sorter using a lexicographically-based index ordering algorithm written in Rust.
+
+> - Now supporting GFF files!
 
 <p align="center">
     <img width=700 align="center" src="./supp/overview.png">
 </p>
 
 While current tools (most of them GFF3-focused) have been recommended for sorting GTF files, none are directed towards chr/pos/feature ordering. This approach ensures custom sorting directionality, which is useful for reducing computation times in tools that work with sorted GTF files. Furthermore, it provides a friendly and organized visualization of gene structures (gene -> transcript -> CDS/exon -> start/stop -> UTR/Sel), allowing users to search for features more efficiently.
+
 
 >[!NOTE]
 > 
@@ -33,14 +36,12 @@ Options:
     --version: print version
 ```
 
-> What's new on v.0.2.1
+> What's new on v.0.2.2
 >
-> - Now gtfsort is x2 faster!
-> - A parallel aproach has been implemented to leverage all the power Rust can provide
-> - Some additional args error handlers have been added
-> - A quick benchmark indicates that now gtfsort takes **6 seconds** to sort the complete *Homo sapiens* GENCODE 44 GTF (1.5GB)
-> - The library functionality has been disabled for this release (gtfsort only works as a CLI now)
-> - A nf-module and a galaxy tool are coming!
+> - **gtfsort now supports GFF sorting!**
+> - Now gtfsort is bit more faster (~0.2s); 1.9GB (*Cyprinus carpio carpio*) in 6.7s
+> - Part of the code has been reorganized and improved.
+> - A nf-module and a galaxy tool are coming! (these are being cooked)
 
 
 #### crate: [https://crates.io/crates/gtfsort](https://crates.io/crates/gtfsort)
@@ -124,7 +125,7 @@ to use gtfsort through Conda just:
 
 ## Benchmark
 
-> Note that this benchmark is outdated, the current implementation (v.0.2.1) is x2 faster than the previous one (v.0.1.1). Now, gtfsort can sort the complete *Homo sapiens* GENCODE 44 GTF (1.5GB) in **6 seconds**. It also can sort the complete *Cyprinus carpio carpio* GTF (1.9GB) in **7 seconds** compared to the previous implementation that took **~14-15 seconds**.
+> Note that this benchmark is outdated, the current implementation (v.0.2.1) is x2 faster than the previous one (v.0.1.1). Now, gtfsort can sort the complete *Homo sapiens* GENCODE 44 GTF (1.5GB) in **6.2 seconds**. It also can sort the complete *Cyprinus carpio carpio* GTF (1.9GB) in **6.7 seconds** compared to the previous implementation that took **~14-15 seconds**.
 
 To assess the efficiency and results of gtfsort, two main benchmarks were conducted. First, I ran gtfsort over the whole Ensembl Animalia GTF3 dataset (110 release; 306 species) [2]. Here, gtfsort demonstrated both of their main attributes: speed and efficiency. This tool is able to sort a 1.9 GB GTF file (*Cyprinus carpio carpio*) in 12 seconds with high accuracy using less than 2.5 GB of RAM. Species of common interest are highlighted. 
 
