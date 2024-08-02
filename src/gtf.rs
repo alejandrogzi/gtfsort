@@ -20,14 +20,26 @@ impl<'a> Record<'a> {
             return Err("Empty line");
         }
 
-        let fields: Vec<&str> = line.split("\t").collect();
-        let attributes = Attribute::parse::<SEP>(fields[8]).unwrap();
+        let mut fields = line.split('\t');
+        let (chrom, _, feat, start, end, _, _, _, attrs_str) = (
+            fields.next().ok_or("Missing chrom")?,
+            fields.next().ok_or("Missing source")?,
+            fields.next().ok_or("Missing feature")?,
+            fields.next().ok_or("Missing start")?,
+            fields.next().ok_or("Missing end")?,
+            fields.next().ok_or("Missing score")?,
+            fields.next().ok_or("Missing strand")?,
+            fields.next().ok_or("Missing frame")?,
+            fields.next().ok_or("Missing attributes")?,
+        );
+
+        let attributes = Attribute::parse::<SEP>(attrs_str).unwrap();
 
         Ok(Self {
-            chrom: fields[0],
-            feat: fields[2],
-            start: fields[3].parse().unwrap(),
-            end: fields[4].parse().unwrap(),
+            chrom,
+            feat,
+            start: start.parse().map_err(|_| "Invalid start")?,
+            end: end.parse().map_err(|_| "Invalid end")?,
             gene_id: attributes.gene_id(),
             transcript_id: attributes.transcript_id(),
             exon_number: attributes.exon_number(),
