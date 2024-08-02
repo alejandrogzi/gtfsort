@@ -70,6 +70,14 @@ struct Args {
     threads: usize,
 }
 
+fn timed<T, F: FnOnce() -> T>(key: &str, f: F) -> T {
+    let start = std::time::Instant::now();
+    let res = f();
+    let elapsed = start.elapsed().as_secs_f64();
+    log::info!("{}: {:.2}s", key, elapsed);
+    res
+}
+
 impl Args {
     /// Checks all the arguments for validity using validate_args()
     pub fn check(&self) -> Result<(), ArgError> {
@@ -222,7 +230,6 @@ fn run(args: Args) {
         Ok(_) => {}
         Err(e) => {
             log::warn!("{} madvise: {}", "Warning:".bright_yellow().bold(), e);
-            std::process::exit(1);
         }
     }
 
@@ -243,61 +250,103 @@ fn run(args: Args) {
     #[cfg(not(feature = "mmap"))]
     let contents_ref = contents.as_str();
 
-    let records = match input_ext {
-        "gff" | "gff3" => parallel_parse::<b'='>(contents_ref),
-        "gtf" => parallel_parse::<b' '>(contents_ref),
-        _ => Err("Unknown file extension, please specify a GTF or GFF3 file"),
-    }
-    .unwrap_or_else(|e| {
-        log::error!("{} {}", "Error:".bright_red().bold(), e);
-        std::process::exit(1);
+    let records = timed("Parsing input", || {
+        match input_ext {
+            "gff" | "gff3" => parallel_parse::<b'='>(contents_ref),
+            "gtf" => parallel_parse::<b' '>(contents_ref),
+            _ => Err("Unknown file extension, please specify a GTF or GFF3 file"),
+        }
+        .unwrap_or_else(|e| {
+            log::error!("{} {}", "Error:".bright_red().bold(), e);
+            std::process::exit(1);
+        })
     });
 
     let index = DashMap::<&str, Layers>::new();
 
     records.par_iter().for_each(|(chrom, lines)| {
-        let mut acc = Layers::default();
+        let acc = {
+            let mut local_accs = Vec::new();
+            (0..rayon::current_num_threads()).for_each(|_| {
+                local_accs.push(SyncUnsafeCell::new(Layers::default()));
+            });
+            lines.par_iter().for_each(|line| {
+                let thread_id = rayon::current_thread_index().unwrap();
+                let acc = unsafe { &mut *local_accs[thread_id].get() };
+                match line.feat {
+                    "gene" => {
+                        acc.layer.push(line.outer_layer());
+                    }
+                    "transcript" => {
+                        acc.mapper
+                            .entry(line.gene_id)
+                            .or_default()
+                            .push(line.transcript_id);
+                        acc.helper.entry(line.transcript_id).or_insert(line.line);
+                    }
+                    "CDS" | "exon" | "start_codon" | "stop_codon" => {
+                        let (exon_number, suffix) = line.inner_layer();
+                        acc.inner.entry(line.transcript_id).or_default().insert(
+                            CowNaturalSort::new(format!("{}{}", exon_number, suffix).into()),
+                            vec![line.line],
+                        );
+                    }
+                    _ => {
+                        acc.inner
+                            .entry(line.transcript_id)
+                            .or_default()
+                            .entry(CowNaturalSort::new(line.feat.into()))
+                            .and_modify(|e| {
+                                e.push(line.line);
+                            })
+                            .or_insert(vec![line.line]);
+                    }
+                }
+            });
 
-        for line in lines {
-            match line.feat {
-                "gene" => {
-                    acc.layer.push(line.outer_layer());
-                }
-                "transcript" => {
-                    acc.mapper
-                        .entry(line.gene_id)
-                        .or_default()
-                        .push(line.transcript_id);
-                    acc.helper.entry(line.transcript_id).or_insert(line.line);
-                }
-                "CDS" | "exon" | "start_codon" | "stop_codon" => {
-                    let (exon_number, suffix) = line.inner_layer();
-                    acc.inner.entry(line.transcript_id).or_default().insert(
-                        CowNaturalSort::new(format!("{}{}", exon_number, suffix).into()),
-                        vec![line.line],
-                    );
-                }
-                _ => {
-                    acc.inner
-                        .entry(line.transcript_id)
-                        .or_default()
-                        .entry(CowNaturalSort::new(line.feat.into()))
-                        .and_modify(|e| {
-                            e.push(line.line);
-                        })
-                        .or_insert(vec![line.line]);
-                }
+            local_accs
+                .into_par_iter()
+                .map(|x| x.into_inner())
+                .reduce_with(|mut x, y| {
+                    x.combine(y);
+                    x
+                })
+        };
+
+        match acc {
+            Some(mut acc) => {
+                acc.layer.par_sort_unstable_by_key(|x| x.0);
+                index.insert(chrom, acc);
+            }
+            None => {
+                log::warn!(
+                    "{} {} {}",
+                    "Warning:".bright_yellow().bold(),
+                    "Empty chromosome",
+                    chrom
+                );
             }
         }
-
-        acc.layer.par_sort_unstable_by_key(|x| x.0);
-        index.insert(chrom, acc);
     });
 
     let mut keys: Vec<&str> = index.iter().map(|x| *x.key()).collect();
     keys.sort_by(|a, b| natord::compare(a, b));
 
-    let _ = write_obj(&args.output, &index, &keys);
+    match timed("Writing output", || {
+        write_obj(
+            &args.output,
+            &index,
+            keys.into_iter()
+                .map(|chr| (chr, index.get(chr).unwrap().count_line_size()))
+                .collect::<Vec<_>>(),
+        )
+    }) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("{} {}", "Write Output Error:".bright_red().bold(), e);
+            std::process::exit(1);
+        }
+    }
 
     let elapsed = start.elapsed().as_secs_f32();
     let mem = (max_mem_usage_mb() - start_mem).max(0.0);

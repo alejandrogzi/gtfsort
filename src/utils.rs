@@ -4,11 +4,11 @@ use rayon::prelude::*;
 use colored::Colorize;
 
 use dashmap::DashMap;
+use std::cell::UnsafeCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::fs::File;
-use std::io::BufWriter;
 use std::io::{self, Write};
+use std::ops::Deref;
 use std::path::Path;
 
 use indoc::indoc;
@@ -20,6 +20,28 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub type Chrom<'a> = &'a str;
 pub type ChromRecord<'a> = HashMap<Chrom<'a>, Vec<Record<'a>>>;
+
+/// Polyfill foe `std::cell:SyncUnsafeCell`
+pub struct SyncUnsafeCell<T>(UnsafeCell<T>);
+
+unsafe impl<T> Sync for SyncUnsafeCell<T> {}
+
+impl<T> Deref for SyncUnsafeCell<T> {
+    type Target = UnsafeCell<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> SyncUnsafeCell<T> {
+    pub fn new(value: T) -> Self {
+        Self(UnsafeCell::new(value))
+    }
+    pub fn into_inner(self) -> T {
+        self.0.into_inner()
+    }
+}
 
 #[derive(Debug)]
 pub struct Layers<'a> {
@@ -33,6 +55,30 @@ pub struct Layers<'a> {
     pub helper: HashMap<&'a str, &'a str>,
 }
 
+impl<'a> Layers<'a> {
+    pub fn combine(&mut self, other: Layers<'a>) {
+        self.layer.extend(other.layer);
+        self.mapper.extend(other.mapper);
+        self.inner.extend(other.inner);
+        self.helper.extend(other.helper);
+    }
+    pub fn count_line_size(&self) -> usize {
+        let mut total = 0;
+
+        for i in self.layer.iter() {
+            total += i.2.len() + 1;
+            let transcripts = self.mapper.get(&i.1).unwrap();
+            for j in transcripts.iter() {
+                total += self.helper.get(j).unwrap().len() + 1;
+                let exons = self.inner.get(j).unwrap();
+                total += exons.values().flatten().map(|x| x.len() + 1).sum::<usize>();
+            }
+        }
+
+        total
+    }
+}
+
 impl<'a> Default for Layers<'a> {
     fn default() -> Self {
         Self {
@@ -44,10 +90,11 @@ impl<'a> Default for Layers<'a> {
     }
 }
 
+#[cfg(not(feature = "mmap"))]
 pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     file: P,
     obj: &DashMap<&'a str, Layers>,
-    keys: &Vec<&'a str>,
+    keys: Vec<(&'a str, usize)>,
 ) -> Result<(), io::Error> {
     let f = match File::create(file) {
         Ok(f) => f,
@@ -59,23 +106,101 @@ pub fn write_obj<'a, P: AsRef<Path> + Debug>(
 
     let mut output = BufWriter::new(f);
 
-    for k in keys {
+    for (k, _) in keys {
         let chr = obj.get(k).unwrap();
 
         for i in chr.layer.iter() {
-            writeln!(output, "{}", i.2).unwrap();
+            writeln!(output, "{}", i.2)?;
 
             let transcripts = chr.mapper.get(&i.1).unwrap();
             for j in transcripts.iter() {
-                writeln!(output, "{}", chr.helper.get(j).unwrap()).unwrap();
+                writeln!(output, "{}", chr.helper.get(j).unwrap())?;
                 let exons = chr.inner.get(j).unwrap();
                 exons
                     .values()
                     .flatten()
-                    .for_each(|x| writeln!(output, "{}", x).unwrap());
+                    .try_for_each(|x| writeln!(output, "{}", x))?;
             }
         }
     }
+
+    Ok(())
+}
+
+#[cfg(feature = "mmap")]
+pub fn write_obj<'a, P: AsRef<Path> + Debug>(
+    file: P,
+    obj: &DashMap<&'a str, Layers>,
+    keys: Vec<(&'a str, usize)>,
+) -> Result<(), io::Error> {
+    use std::{fs::OpenOptions, io::Cursor};
+
+    use crate::mmap::{self, Madvice};
+
+    let f = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(file)?;
+
+    let size = keys.iter().map(|(_, i)| *i as u64).sum();
+
+    f.set_len(size)?;
+
+    #[cfg(unix)]
+    let mut output_map = unsafe { mmap::MemoryMapMut::from_file(&f, size as usize)? };
+
+    #[cfg(windows)]
+    let mut output_map = unsafe { mmap::MemoryMapMut::from_handle(&f, Some(size as usize))? };
+
+    match output_map.madvise(&[Madvice::Random]) {
+        Ok(_) => (),
+        Err(e) => {
+            log::warn!("{} {}", "Madvice error:".bright_yellow().bold(), e);
+        }
+    }
+
+    let mut output = output_map.as_mut_slice();
+
+    let mut output_slices = Vec::new();
+    for (_, s) in keys.iter() {
+        let (a, b) = output.split_at_mut(*s);
+        output_slices.push(a);
+        output = b;
+    }
+
+    keys.into_iter()
+        .zip(output_slices)
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .try_for_each(|((k, size_expected), output)| {
+            let chr = obj.get(k).unwrap();
+
+            let mut output = Cursor::new(output);
+
+            for i in chr.layer.iter() {
+                writeln!(output, "{}", i.2)?;
+
+                let transcripts = chr.mapper.get(&i.1).unwrap();
+                for j in transcripts.iter() {
+                    writeln!(output, "{}", chr.helper.get(j).unwrap())?;
+                    let exons = chr.inner.get(j).unwrap();
+                    exons
+                        .values()
+                        .flatten()
+                        .try_for_each(|x| writeln!(output, "{}", x))?;
+                }
+            }
+
+            assert_eq!(
+                output.position(),
+                size_expected as u64,
+                "Output buffer not empty, something went wrong"
+            );
+
+            Ok::<_, io::Error>(())
+        })?;
 
     Ok(())
 }
