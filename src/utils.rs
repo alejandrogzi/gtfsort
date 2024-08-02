@@ -4,11 +4,9 @@ use rayon::prelude::*;
 use colored::Colorize;
 
 use dashmap::DashMap;
-use std::cell::UnsafeCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::io::{self, Write};
-use std::ops::Deref;
 use std::path::Path;
 
 use indoc::indoc;
@@ -20,28 +18,6 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub type Chrom<'a> = &'a str;
 pub type ChromRecord<'a> = HashMap<Chrom<'a>, Vec<Record<'a>>>;
-
-/// Polyfill foe `std::cell:SyncUnsafeCell`
-pub struct SyncUnsafeCell<T>(UnsafeCell<T>);
-
-unsafe impl<T> Sync for SyncUnsafeCell<T> {}
-
-impl<T> Deref for SyncUnsafeCell<T> {
-    type Target = UnsafeCell<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> SyncUnsafeCell<T> {
-    pub fn new(value: T) -> Self {
-        Self(UnsafeCell::new(value))
-    }
-    pub fn into_inner(self) -> T {
-        self.0.into_inner()
-    }
-}
 
 #[derive(Debug)]
 pub struct Layers<'a> {
@@ -56,12 +32,6 @@ pub struct Layers<'a> {
 }
 
 impl<'a> Layers<'a> {
-    pub fn combine(&mut self, other: Layers<'a>) {
-        self.layer.extend(other.layer);
-        self.mapper.extend(other.mapper);
-        self.inner.extend(other.inner);
-        self.helper.extend(other.helper);
-    }
     pub fn count_line_size(&self) -> usize {
         let mut total = 0;
 
