@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::BufWriter;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::Path;
 
 use indoc::indoc;
@@ -42,13 +42,6 @@ impl<'a> Default for Layers<'a> {
             helper: HashMap::new(),
         }
     }
-}
-
-pub fn reader<P: AsRef<Path> + Debug>(file: P) -> io::Result<String> {
-    let mut file = File::open(file)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
 }
 
 pub fn write_obj<'a, P: AsRef<Path> + Debug>(
@@ -106,6 +99,7 @@ pub fn parallel_parse<const SEP: u8>(s: &str) -> Result<ChromRecord<'_>, &'stati
     Ok(x)
 }
 
+#[cfg(not(windows))]
 pub fn max_mem_usage_mb() -> f64 {
     let rusage = unsafe {
         let mut rusage = std::mem::MaybeUninit::uninit();
@@ -117,6 +111,28 @@ pub fn max_mem_usage_mb() -> f64 {
         maxrss / 1024.0 / 1024.0
     } else {
         maxrss / 1024.0
+    }
+}
+
+#[cfg(windows)]
+pub fn max_mem_usage_mb() -> f64 {
+    use windows::Win32::System::{
+        ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
+        Threading::GetCurrentProcess,
+    };
+
+    unsafe {
+        let h_proc = GetCurrentProcess();
+
+        let mut pps = PROCESS_MEMORY_COUNTERS::default();
+        GetProcessMemoryInfo(
+            h_proc,
+            &mut pps,
+            std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+        )
+        .ok();
+
+        pps.PeakWorkingSetSize as f64 / 1024.0 / 1024.0
     }
 }
 

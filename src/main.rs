@@ -25,8 +25,11 @@ use clap::{self, Parser};
 use colored::Colorize;
 use dashmap::DashMap;
 use log::Level;
+use mmap::Madvice;
 use rayon::prelude::*;
-use std::path::PathBuf;
+#[cfg(all(feature = "mmap", unix))]
+use std::os::unix::fs::MetadataExt;
+use std::{fs::File, path::PathBuf};
 use thiserror::Error;
 
 use gtfsort::*;
@@ -188,14 +191,61 @@ fn run(args: Args) {
 
     log::info!("Using {} threads", args.threads);
 
-    let contents = reader(&args.input).unwrap_or_else(|e| {
+    #[cfg(feature = "mmap")]
+    let f = File::open(&args.input).unwrap_or_else(|e| {
         log::error!("{} {}", "Error:".bright_red().bold(), e);
         std::process::exit(1);
     });
 
+    #[cfg(all(feature = "mmap", unix))]
+    let contents_map = unsafe {
+        mmap::MemoryMap::<u8>::from_file(
+            &f,
+            f.metadata().expect("Failed to get input file size.").size() as usize,
+        )
+        .unwrap_or_else(|e| {
+            log::error!("{} {}", "Error:".bright_red().bold(), e);
+            std::process::exit(1);
+        })
+    };
+
+    #[cfg(all(feature = "mmap", windows))]
+    let contents_map = unsafe {
+        mmap::MemoryMap::<u8>::from_handle(&f, None).unwrap_or_else(|e| {
+            log::error!("{} {}", "Error:".bright_red().bold(), e);
+            std::process::exit(1);
+        })
+    };
+
+    #[cfg(feature = "mmap")]
+    match contents_map.madvise(&[Madvice::WillNeed, Madvice::Sequential, Madvice::HugePage]) {
+        Ok(_) => {}
+        Err(e) => {
+            log::warn!("{} madvise: {}", "Warning:".bright_yellow().bold(), e);
+            std::process::exit(1);
+        }
+    }
+
+    #[cfg(feature = "mmap")]
+    let contents_ref = unsafe { std::str::from_utf8_unchecked(contents_map.as_slice()) };
+
+    #[cfg(feature = "mmap")]
+    log::info!(
+        "Successfully mapped file to memory, size: {} bytes",
+        contents_ref.len()
+    );
+
+    #[cfg(not(feature = "mmap"))]
+    let contents = std::fs::read_to_string(&args.input).unwrap_or_else(|e| {
+        log::error!("{} {}", "Error:".bright_red().bold(), e);
+        std::process::exit(1);
+    });
+    #[cfg(not(feature = "mmap"))]
+    let contents_ref = contents.as_str();
+
     let records = match input_ext {
-        "gff" | "gff3" => parallel_parse::<b'='>(&contents),
-        "gtf" => parallel_parse::<b' '>(&contents),
+        "gff" | "gff3" => parallel_parse::<b'='>(contents_ref),
+        "gtf" => parallel_parse::<b' '>(contents_ref),
         _ => Err("Unknown file extension, please specify a GTF or GFF3 file"),
     }
     .unwrap_or_else(|e| {

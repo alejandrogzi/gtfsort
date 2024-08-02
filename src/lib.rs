@@ -6,3 +6,6 @@ pub use ord::CowNaturalSort;
 
 pub mod utils;
 pub use utils::*;
+
+#[cfg(feature = "mmap")]
+pub mod mmap;
