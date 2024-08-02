@@ -1,90 +1,96 @@
 #![allow(dead_code)]
 
-use hashbrown::HashMap;
 use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
-pub struct Attribute {
-    gene_id: String,
-    transcript_id: String,
-    exon_number: String,
-    exon_id: String,
-}
-
-impl Attribute {
-    pub fn parse(line: &String) -> Result<Attribute, ParseError> {
-        if !line.is_empty() {
-            let mut attributes: HashMap<String, String> = HashMap::new();
-            let bytes = line.trim_end().as_bytes().iter().enumerate();
-
-            let mut start = 0;
-
-            for (mut i, byte) in bytes {
-                if *byte == b';' || i == line.len() - 1 {
-                    if i == line.len() - 1 && *byte != b';' {
-                        i += 1;
-                    };
-                    let word = &line[start..i];
-                    if !word.is_empty() {
-                        let (key, value) = get_pair(word)?;
-                        attributes.insert(key, value);
-                    }
-                    start = i + 1;
+macro_rules! extract_field {
+    ($bytes:ident split by $sep:ident to $( $field_name:literal => $output_field:expr; )+) => {
+        $(
+            if let Some(without_key) = $bytes.strip_prefix($field_name) {
+                if let Some(without_eq) = without_key.strip_prefix(&[$sep]) {
+                    let value = unsafe { std::str::from_utf8_unchecked(without_eq) };
+                    *$output_field = Some(value.trim_matches(|c| c == '"'));
                 }
             }
+        )+
+    };
+    ($bytes:ident split by $sep:literal to $( $field_name:literal => $output_field:expr; )+) => {
+        $(
+            if let Some(without_key) = $bytes.strip_prefix($field_name) {
+                if let Some(without_eq) = without_key.strip_prefix(&[$sep]) {
+                    let value = unsafe { std::str::from_utf8_unchecked(without_eq) };
+                    *$output_field = Some(value.trim_matches(|c| c == '"'));
+                }
+            }
+        )+
+    };
+}
 
-            let gene_id = attributes
-                .get("gene_id")
-                .ok_or(ParseError::MissingGeneId(line.to_string()))?;
+#[inline(always)]
+fn split_and_trim_bytes<const BY: u8, const TRIM: u8>(bytes: &[u8]) -> impl Iterator<Item = &[u8]> {
+    bytes.split(|b| *b == BY).map(|b| {
+        let mut idx = 0;
+        while idx < b.len() && b[idx] == TRIM {
+            idx += 1;
+        }
+        &b[idx..]
+    })
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Attribute<'a> {
+    gene_id: &'a str,
+    transcript_id: &'a str,
+    exon_number: &'a str,
+    exon_id: &'a str,
+}
+
+impl<'a> Attribute<'a> {
+    pub fn parse<const SEP: u8>(line: &'a str) -> Result<Attribute<'a>, ParseError> {
+        if !line.is_empty() {
+            let field_bytes = split_and_trim_bytes::<b';', b' '>(line.trim_end().as_bytes());
+
+            let (mut gene_id, mut transcript_id, mut exon_number, mut exon_id) =
+                (None, None, None, None);
+
+            for field in field_bytes {
+                extract_field!(
+                    field split by SEP to
+                    b"gene_id" => (&mut gene_id);
+                    b"transcript_id" => (&mut transcript_id);
+                    b"exon_number" => (&mut exon_number);
+                    b"exon_id" => (&mut exon_id););
+            }
 
             Ok(Attribute {
-                gene_id: gene_id.to_string(),
-                transcript_id: attributes
-                    .get("transcript_id")
-                    .unwrap_or(&"0".to_string())
-                    .to_string(),
-                exon_number: attributes
-                    .get("exon_number")
-                    .unwrap_or(&"z".to_string())
-                    .to_string(),
-                exon_id: attributes
-                    .get("exon_id")
-                    .unwrap_or(&"0".to_string())
-                    .to_string(),
+                gene_id: gene_id.ok_or(ParseError::MissingGeneId(line.to_string()))?,
+                transcript_id: transcript_id.unwrap_or("0"),
+                exon_number: exon_number.unwrap_or("z"),
+                exon_id: exon_id.unwrap_or("0"),
             })
         } else {
             Err(ParseError::Empty)
         }
     }
 
-    pub fn gene_id(&self) -> &str {
-        &self.gene_id
+    #[inline(always)]
+    pub fn gene_id(&self) -> &'a str {
+        self.gene_id
     }
 
-    pub fn transcript_id(&self) -> &str {
-        &self.transcript_id
+    #[inline(always)]
+    pub fn transcript_id(&self) -> &'a str {
+        self.transcript_id
     }
 
-    pub fn exon_number(&self) -> &str {
-        &self.exon_number
+    #[inline(always)]
+    pub fn exon_number(&self) -> &'a str {
+        self.exon_number
     }
 
-    pub fn exon_id(&self) -> &str {
-        &self.exon_id
+    #[inline(always)]
+    pub fn exon_id(&self) -> &'a str {
+        self.exon_id
     }
-}
-
-fn get_pair(line: &str) -> Result<(String, String), ParseError> {
-    let line = line.trim();
-    let mut bytes = line.as_bytes().iter();
-    let i = bytes
-        .position(|b| *b == b' ' || *b == b'=')
-        .ok_or(ParseError::InvalidPair(line.to_string()))?;
-
-    let key = &line[..i];
-    let value = &line[i + 1..line.len()].trim_matches('"').trim();
-
-    Ok((key.to_string(), value.to_string()))
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -114,7 +120,7 @@ mod tests {
     fn valid_attributes() {
         let input = "gene_id \"ABC\"; transcript_id \"XYZ\"; exon_number \"1\"; exon_id \"123\";"
             .to_string();
-        let attr = Attribute::parse(&input).unwrap();
+        let attr = Attribute::parse::<b' '>(&input).unwrap();
 
         assert_eq!(attr.gene_id(), "ABC");
         assert_eq!(attr.transcript_id(), "XYZ");
@@ -125,7 +131,7 @@ mod tests {
     #[test]
     fn invalid_attributes() {
         let input = "transcript_id \"XYZ\"; exon_number \"1\";".to_string();
-        let result = Attribute::parse(&input);
+        let result = Attribute::parse::<b' '>(&input);
 
         assert_eq!(result.unwrap_err(), ParseError::MissingGeneId(input));
     }
@@ -133,104 +139,85 @@ mod tests {
     #[test]
     fn get_gencode_pair_from_gene_line() {
         let line = "gene_id \"ENSG00000290825.1\"; gene_type \"lncRNA\"; gene_name \"DDX11L2\"; level 2; tag \"overlaps_pseudogene\";".to_string();
-        let mut attributes: HashMap<String, String> = HashMap::new();
-        let bytes = line.as_bytes().iter().enumerate();
 
-        let mut start = 0;
+        let attrs = Attribute::parse::<b' '>(&line).unwrap();
 
-        for (i, byte) in bytes {
-            if *byte == b';' {
-                let word = &line[start..i];
-                if !word.is_empty() {
-                    let (key, value) = get_pair(word).unwrap();
-                    attributes.insert(key, value);
-                }
-                start = i + 2;
-            }
+        assert_eq!(attrs.gene_id(), String::from("ENSG00000290825.1"));
+
+        let (mut gene_id, mut gene_type, mut gene_name, mut level, mut tag) =
+            (None, None, None, None, None);
+
+        let bytes = split_and_trim_bytes::<b';', b' '>(line.trim_end().as_bytes());
+        for field in bytes {
+            extract_field!(
+                field split by b' ' to
+                b"gene_id" => (&mut gene_id);
+                b"gene_type" => (&mut gene_type);
+                b"gene_name" => (&mut gene_name);
+                b"level" => (&mut level);
+                b"tag" => (&mut tag);
+            );
         }
 
-        assert_eq!(
-            *attributes.get("gene_id").unwrap(),
-            String::from("ENSG00000290825.1")
-        );
-        assert_eq!(
-            *attributes.get("gene_type").unwrap(),
-            String::from("lncRNA")
-        );
-        assert_eq!(
-            *attributes.get("gene_name").unwrap(),
-            String::from("DDX11L2")
-        );
-        assert_eq!(*attributes.get("level").unwrap(), String::from("2"));
-        assert_eq!(
-            *attributes.get("tag").unwrap(),
-            String::from("overlaps_pseudogene")
-        );
+        assert_eq!(gene_type, Some("lncRNA"));
+        assert_eq!(gene_name, Some("DDX11L2"));
+        assert_eq!(level, Some("2"));
+        assert_eq!(tag, Some("overlaps_pseudogene"));
     }
 
     #[test]
     fn get_gencode_pair_from_exon_line() {
         let line = "gene_id \"ENSG00000290825.1\"; transcript_id \"ENST00000456328.2\"; gene_type \"lncRNA\"; gene_name \"DDX11L2\"; transcript_type \"lncRNA\"; transcript_name \"DDX11L2-202\"; exon_number 2; exon_id \"ENSE00003582793.1\"; level 2; transcript_support_level \"1\"; tag \"basic\"; tag \"Ensembl_canonical\"; havana_transcript \"OTTHUMT00000362751.1\";".to_string();
-        let mut attributes: HashMap<String, String> = HashMap::new();
 
-        let bytes = line.trim_end().as_bytes().iter().enumerate();
+        let (
+            mut gene_id,
+            mut transcript_id,
+            mut gene_type,
+            mut gene_name,
+            mut transcript_type,
+            mut transcript_name,
+            mut exon_number,
+            mut exon_id,
+            mut level,
+            mut transcript_support_level,
+            mut tag,
+            mut havana_transcript,
+        ) = (
+            None, None, None, None, None, None, None, None, None, None, None, None,
+        );
 
-        let mut start = 0;
-
-        for (mut i, byte) in bytes {
-            if *byte == b';' || i == line.len() - 1 {
-                if i == line.len() - 1 && *byte != b';' {
-                    i += 1;
-                };
-                let word = &line[start..i];
-                if !word.is_empty() {
-                    let (key, value) = get_pair(word).unwrap();
-                    attributes.insert(key, value);
-                }
-                start = i + 1;
-            }
+        let bytes = split_and_trim_bytes::<b';', b' '>(line.trim_end().as_bytes());
+        for field in bytes {
+            extract_field!(
+            field split by b' ' to
+            b"gene_id" => (&mut gene_id);
+            b"transcript_id" => (&mut transcript_id);
+            b"gene_type" => (&mut gene_type);
+            b"gene_name" => (&mut gene_name);
+            b"transcript_type" => (&mut transcript_type);
+            b"transcript_name" => (&mut transcript_name);
+            b"exon_number" => (&mut exon_number);
+            b"exon_id" => (&mut exon_id);
+            b"level" => (&mut level);
+            b"transcript_support_level" => (&mut transcript_support_level);
+            b"tag" => (&mut tag);
+            b"havana_transcript" => (&mut havana_transcript);
+            );
         }
 
+        assert_eq!(gene_id.unwrap(), String::from("ENSG00000290825.1"));
+        assert_eq!(transcript_id.unwrap(), String::from("ENST00000456328.2"));
+        assert_eq!(gene_type.unwrap(), String::from("lncRNA"));
+        assert_eq!(gene_name.unwrap(), String::from("DDX11L2"));
+        assert_eq!(transcript_type.unwrap(), String::from("lncRNA"));
+        assert_eq!(transcript_name.unwrap(), String::from("DDX11L2-202"));
+        assert_eq!(exon_number.unwrap(), String::from("2"));
+        assert_eq!(exon_id.unwrap(), String::from("ENSE00003582793.1"));
+        assert_eq!(level.unwrap(), String::from("2"));
+        assert_eq!(transcript_support_level.unwrap(), String::from("1"));
+        assert_eq!(tag.unwrap(), String::from("Ensembl_canonical"));
         assert_eq!(
-            *attributes.get("gene_id").unwrap(),
-            String::from("ENSG00000290825.1")
-        );
-        assert_eq!(
-            *attributes.get("transcript_id").unwrap(),
-            String::from("ENST00000456328.2")
-        );
-        assert_eq!(
-            *attributes.get("gene_type").unwrap(),
-            String::from("lncRNA")
-        );
-        assert_eq!(
-            *attributes.get("gene_name").unwrap(),
-            String::from("DDX11L2")
-        );
-        assert_eq!(
-            *attributes.get("transcript_type").unwrap(),
-            String::from("lncRNA")
-        );
-        assert_eq!(
-            *attributes.get("transcript_name").unwrap(),
-            String::from("DDX11L2-202")
-        );
-        assert_eq!(*attributes.get("exon_number").unwrap(), String::from("2"));
-        assert_eq!(
-            *attributes.get("exon_id").unwrap(),
-            String::from("ENSE00003582793.1")
-        );
-        assert_eq!(*attributes.get("level").unwrap(), String::from("2"));
-        assert_eq!(
-            *attributes.get("transcript_support_level").unwrap(),
-            String::from("1")
-        );
-        assert_eq!(
-            *attributes.get("tag").unwrap(),
-            String::from("Ensembl_canonical")
-        );
-        assert_eq!(
-            *attributes.get("havana_transcript").unwrap(),
+            havana_transcript.unwrap(),
             String::from("OTTHUMT00000362751.1")
         );
     }
@@ -238,7 +225,7 @@ mod tests {
     #[test]
     fn parse_gff_line() {
         let line = "chr1\tHAVANA\ttranscript\t11869\t14409\t.\t+\t.\tID=ENST00000450305.2;Parent=ENSG00000223972.6;gene_id=ENSG00000223972.6;transcript_id=ENST00000450305.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=transcribed_unprocessed_pseudogene;transcript_name=DDX11L1-201;level=2;transcript_support_level=NA;hgnc_id=HGNC:37102;ont=PGO:0000005,PGO:0000019;tag=basic,Ensembl_canonical;havana_gene=OTTHUMG00000000961.2;havana_transcript=OTTHUMT00000002844.2".to_string();
-        let attr = Attribute::parse(&line).unwrap();
+        let attr = Attribute::parse::<b'='>(&line).unwrap();
 
         assert_eq!(attr.gene_id(), "ENSG00000223972.6");
         assert_eq!(attr.transcript_id(), "ENST00000450305.2");

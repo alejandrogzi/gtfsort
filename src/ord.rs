@@ -1,21 +1,34 @@
-use natord::compare;
-use std::cmp::Ordering;
+use std::{borrow::Cow, cmp::Ordering, fmt::Debug, ops::Deref};
 
-#[derive(Debug, PartialEq, Eq, PartialOrd)]
-pub struct Sort {
-    value: String,
-}
+#[derive(Debug, PartialEq, Eq)]
+pub struct CowNaturalSort<'a>(pub Cow<'a, str>);
 
-impl Sort {
-    pub fn new(value: &str) -> Self {
-        Sort {
-            value: value.to_string(),
-        }
+impl<'a> CowNaturalSort<'a> {
+    #[inline(always)]
+    pub fn new(s: Cow<'a, str>) -> Self {
+        Self(s)
     }
 }
 
-impl Ord for Sort {
+impl Deref for CowNaturalSort<'_> {
+    type Target = str;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialOrd for CowNaturalSort<'_> {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CowNaturalSort<'_> {
+    #[inline(always)]
     fn cmp(&self, other: &Self) -> Ordering {
-        compare(&self.value, &other.value)
+        natord::compare(&self.0, &other.0)
     }
 }

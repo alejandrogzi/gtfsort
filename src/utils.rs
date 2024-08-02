@@ -10,31 +10,30 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::{self, Read, Write};
 use std::path::Path;
-use std::sync::Arc;
 
 use indoc::indoc;
 
 use crate::gtf::Record;
-use crate::ord::Sort;
+use crate::ord::CowNaturalSort;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub type Chrom = Arc<str>;
-pub type ChromRecord = HashMap<Chrom, Vec<Record>>;
+pub type Chrom<'a> = &'a str;
+pub type ChromRecord<'a> = HashMap<Chrom<'a>, Vec<Record<'a>>>;
 
 #[derive(Debug)]
-pub struct Layers {
+pub struct Layers<'a> {
     // (start, gene_id, line)
-    pub layer: Vec<(u32, Arc<str>, Arc<str>)>,
+    pub layer: Vec<(u32, &'a str, &'a str)>,
     // gene_id -> [transcript_id, transcript_id, ...]
-    pub mapper: HashMap<Arc<str>, Vec<Arc<str>>>,
+    pub mapper: HashMap<&'a str, Vec<&'a str>>,
     // transcript_id -> {feat -> line}
-    pub inner: HashMap<Arc<str>, BTreeMap<Sort, String>>,
+    pub inner: HashMap<&'a str, BTreeMap<CowNaturalSort<'a>, Vec<&'a str>>>,
     // transcript_id -> line
-    pub helper: HashMap<Arc<str>, Arc<str>>,
+    pub helper: HashMap<&'a str, &'a str>,
 }
 
-impl Default for Layers {
+impl<'a> Default for Layers<'a> {
     fn default() -> Self {
         Self {
             layer: Vec::new(),
@@ -52,10 +51,10 @@ pub fn reader<P: AsRef<Path> + Debug>(file: P) -> io::Result<String> {
     Ok(contents)
 }
 
-pub fn write_obj<P: AsRef<Path> + Debug>(
+pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     file: P,
-    obj: &DashMap<Arc<str>, Layers>,
-    keys: &Vec<Arc<str>>,
+    obj: &DashMap<&'a str, Layers>,
+    keys: &Vec<&'a str>,
 ) -> Result<(), io::Error> {
     let f = match File::create(file) {
         Ok(f) => f,
@@ -77,12 +76,10 @@ pub fn write_obj<P: AsRef<Path> + Debug>(
             for j in transcripts.iter() {
                 writeln!(output, "{}", chr.helper.get(j).unwrap()).unwrap();
                 let exons = chr.inner.get(j).unwrap();
-                let joined_exons: String = exons
+                exons
                     .values()
-                    .map(|value| value.to_string())
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                writeln!(output, "{}", joined_exons).unwrap();
+                    .flatten()
+                    .for_each(|x| writeln!(output, "{}", x).unwrap());
             }
         }
     }
@@ -90,27 +87,21 @@ pub fn write_obj<P: AsRef<Path> + Debug>(
     Ok(())
 }
 
-pub fn parallel_parse<'a>(s: &'a str) -> Result<ChromRecord, &'static str> {
+pub fn parallel_parse<const SEP: u8>(s: &str) -> Result<ChromRecord<'_>, &'static str> {
     let x = s
         .par_lines()
         .filter(|line| !line.starts_with("#"))
-        .filter_map(|line| Record::parse(line).ok())
-        .fold(
-            || HashMap::new(),
-            |mut acc: ChromRecord, record| {
-                acc.entry(record.chrom.clone()).or_default().push(record);
-                acc
-            },
-        )
-        .reduce(
-            || HashMap::new(),
-            |mut acc, map| {
-                for (k, v) in map {
-                    acc.entry(k).or_default().extend(v);
-                }
-                acc
-            },
-        );
+        .filter_map(|line| Record::parse::<SEP>(line).ok())
+        .fold(HashMap::new, |mut acc: ChromRecord, record| {
+            acc.entry(record.chrom).or_default().push(record);
+            acc
+        })
+        .reduce(HashMap::new, |mut acc, map| {
+            for (k, v) in map {
+                acc.entry(k).or_default().extend(v);
+            }
+            acc
+        });
 
     Ok(x)
 }

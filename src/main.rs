@@ -25,11 +25,8 @@ use clap::{self, Parser};
 use colored::Colorize;
 use dashmap::DashMap;
 use log::Level;
-use natord::compare;
-use num_cpus;
 use rayon::prelude::*;
 use std::path::PathBuf;
-use std::sync::Arc;
 use thiserror::Error;
 
 use gtfsort::*;
@@ -81,7 +78,7 @@ impl Args {
     fn check_input(&self) -> Result<(), ArgError> {
         if !self.input.exists() {
             let err = format!("file {:?} does not exist", self.input);
-            return Err(ArgError::InvalidInput(err));
+            Err(ArgError::InvalidInput(err))
         } else if !self.input.extension().unwrap().eq("gff")
             & !self.input.extension().unwrap().eq("gtf")
             & !self.input.extension().unwrap().eq("gff3")
@@ -109,7 +106,7 @@ impl Args {
                 "file {:?} is not a GTF/GFF file, please specify the correct output format",
                 self.output
             );
-            return Err(ArgError::InvalidOutput(err));
+            Err(ArgError::InvalidOutput(err))
         } else {
             Ok(())
         }
@@ -119,13 +116,12 @@ impl Args {
     /// and less than or equal to the number of logical CPUs.
     fn check_threads(&self) -> Result<(), ArgError> {
         if self.threads == 0 {
-            let err = format!("number of threads must be greater than 0");
-            return Err(ArgError::InvalidThreads(err));
+            let err = "number of threads must be greater than 0".to_string();
+            Err(ArgError::InvalidThreads(err))
         } else if self.threads > num_cpus::get() {
-            let err = format!(
-                "number of threads must be less than or equal to the number of logical CPUs"
-            );
-            return Err(ArgError::InvalidThreads(err));
+            let err = "number of threads must be less than or equal to the number of logical CPUs"
+                .to_string();
+            Err(ArgError::InvalidThreads(err))
         } else {
             Ok(())
         }
@@ -174,6 +170,14 @@ fn main() {
 
 fn run(args: Args) {
     msg();
+
+    let input_ext = args
+        .input
+        .extension()
+        .expect("Missing input file extension")
+        .to_str()
+        .expect("Invalid input file extension");
+
     let start = std::time::Instant::now();
     let start_mem = max_mem_usage_mb();
 
@@ -188,60 +192,60 @@ fn run(args: Args) {
         log::error!("{} {}", "Error:".bright_red().bold(), e);
         std::process::exit(1);
     });
-    let records = parallel_parse(&contents).unwrap_or_else(|e| {
+
+    let records = match input_ext {
+        "gff" | "gff3" => parallel_parse::<b'='>(&contents),
+        "gtf" => parallel_parse::<b' '>(&contents),
+        _ => Err("Unknown file extension, please specify a GTF or GFF3 file"),
+    }
+    .unwrap_or_else(|e| {
         log::error!("{} {}", "Error:".bright_red().bold(), e);
         std::process::exit(1);
     });
 
-    let index = DashMap::<Arc<str>, Layers>::new();
+    let index = DashMap::<&str, Layers>::new();
 
     records.par_iter().for_each(|(chrom, lines)| {
         let mut acc = Layers::default();
 
         for line in lines {
-            match line.feat.as_str() {
+            match line.feat {
                 "gene" => {
                     acc.layer.push(line.outer_layer());
                 }
                 "transcript" => {
                     acc.mapper
-                        .entry(line.gene_id.clone())
+                        .entry(line.gene_id)
                         .or_default()
-                        .push(line.transcript_id.clone());
-                    acc.helper
-                        .entry(line.transcript_id.clone())
-                        .or_insert(line.line.clone());
+                        .push(line.transcript_id);
+                    acc.helper.entry(line.transcript_id).or_insert(line.line);
                 }
                 "CDS" | "exon" | "start_codon" | "stop_codon" => {
-                    let exon_number = line.inner_layer();
-                    acc.inner
-                        .entry(line.transcript_id.clone())
-                        .or_default()
-                        .insert(
-                            Sort::new(exon_number.as_str()),
-                            line.line.clone().to_string(),
-                        );
+                    let (exon_number, suffix) = line.inner_layer();
+                    acc.inner.entry(line.transcript_id).or_default().insert(
+                        CowNaturalSort::new(format!("{}{}", exon_number, suffix).into()),
+                        vec![line.line],
+                    );
                 }
                 _ => {
                     acc.inner
-                        .entry(line.transcript_id.clone())
+                        .entry(line.transcript_id)
                         .or_default()
-                        .entry(Sort::new(line.feat.clone().as_str()))
+                        .entry(CowNaturalSort::new(line.feat.into()))
                         .and_modify(|e| {
-                            e.push('\n');
-                            e.push_str(&line.line.clone());
+                            e.push(line.line);
                         })
-                        .or_insert(line.line.clone().to_string());
+                        .or_insert(vec![line.line]);
                 }
             }
         }
 
         acc.layer.par_sort_unstable_by_key(|x| x.0);
-        index.insert(chrom.clone(), acc);
+        index.insert(chrom, acc);
     });
 
-    let mut keys: Vec<Arc<str>> = index.iter().map(|x| x.key().clone()).collect();
-    keys.par_sort_unstable_by(|a, b| compare(a, b));
+    let mut keys: Vec<&str> = index.iter().map(|x| *x.key()).collect();
+    keys.sort_by(|a, b| natord::compare(a, b));
 
     let _ = write_obj(&args.output, &index, &keys);
 
