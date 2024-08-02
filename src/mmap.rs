@@ -39,7 +39,7 @@ impl<'a, T> MemoryMap<'a, T> {
     }
 
     pub fn as_slice(&self) -> &[T] {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts(self.ptr, self.size / std::mem::size_of::<T>()) }
     }
 
     pub fn madvise(&self, advice: &[Madvice]) -> Result<(), std::io::Error> {
@@ -193,11 +193,11 @@ impl<'a, T> MemoryMapMut<'a, T> {
     }
 
     pub fn as_slice(&self) -> &[T] {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts(self.ptr, self.size / std::mem::size_of::<T>()) }
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size / std::mem::size_of::<T>()) }
     }
 
     pub fn madvise(&self, advice: &[Madvice]) -> Result<(), std::io::Error> {

@@ -61,7 +61,16 @@ impl<'a> Default for Layers<'a> {
 }
 
 #[cfg(not(feature = "mmap"))]
+#[inline(always)]
 pub fn write_obj<'a, P: AsRef<Path> + Debug>(
+    file: P,
+    obj: &DashMap<&'a str, Layers>,
+    keys: Vec<(&'a str, usize)>,
+) -> Result<(), io::Error> {
+    write_obj_sequential(file, obj, keys)
+}
+
+pub fn write_obj_sequential<'a, P: AsRef<Path> + Debug>(
     file: P,
     obj: &DashMap<&'a str, Layers>,
     keys: Vec<(&'a str, usize)>,
@@ -135,6 +144,11 @@ pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     }
 
     let mut output = output_map.as_mut_slice();
+
+    log::info!(
+        "Successfully mapped output file, size: {} bytes",
+        output.len()
+    );
 
     let mut output_slices = Vec::new();
     for (_, s) in keys.iter() {

@@ -313,12 +313,32 @@ fn run(args: Args) {
         write_obj(
             &args.output,
             &index,
-            keys.into_iter()
-                .map(|chr| (chr, index.get(chr).unwrap().count_line_size()))
+            keys.iter()
+                .map(|chr| (*chr, index.get(chr).unwrap().count_line_size()))
                 .collect::<Vec<_>>(),
         )
     }) {
         Ok(_) => {}
+        #[cfg(feature = "mmap")]
+        Err(e) => {
+            log::warn!(
+                "{} {}",
+                "Memory Mapped Write Output Error, falling back to sequential write:"
+                    .bright_red()
+                    .bold(),
+                e
+            );
+            write_obj_sequential(
+                &args.output,
+                &index,
+                keys.into_iter().map(|chr| (chr, 0)).collect(),
+            )
+            .unwrap_or_else(|e| {
+                log::error!("{} {}", "Write Output Error:".bright_red().bold(), e);
+                std::process::exit(1);
+            });
+        }
+        #[cfg(not(feature = "mmap"))]
         Err(e) => {
             log::error!("{} {}", "Write Output Error:".bright_red().bold(), e);
             std::process::exit(1);
