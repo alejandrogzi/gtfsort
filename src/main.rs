@@ -25,6 +25,7 @@ use clap::{self, Parser};
 use colored::Colorize;
 use dashmap::DashMap;
 use log::Level;
+#[cfg(feature = "mmap")]
 use mmap::Madvice;
 use rayon::prelude::*;
 #[cfg(all(feature = "mmap", unix))]

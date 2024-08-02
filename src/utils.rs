@@ -96,6 +96,9 @@ pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     obj: &DashMap<&'a str, Layers>,
     keys: Vec<(&'a str, usize)>,
 ) -> Result<(), io::Error> {
+    use std::fs::File;
+    use std::io::BufWriter;
+
     let f = match File::create(file) {
         Ok(f) => f,
         Err(e) => {
