@@ -8,7 +8,7 @@ BENCHMARK_TARGETS=(
   "base=48362e13d651be64e4f1f10c725519973dc8dc9a"
   "nocopy=fa29008f7e1924c377d83d0d1247b1cf46c40f39"
   "mmap=dce6085093662c99f9b0fe1e1447c005b84f48fd"
-  "mmapwrite=b2869cbd630584c28a305a6b5e61a863acd242c0"
+  "mmapwrite=b31cf26a4fe05f24474aabda3c898e92e9f86562"
 )
 STDOUT_FILE="tests/benchmark-output.txt"
 
