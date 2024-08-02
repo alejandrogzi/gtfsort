@@ -264,69 +264,71 @@ fn run(args: Args) {
 
     let index = DashMap::<&str, Layers>::new();
 
-    records.par_iter().for_each(|(chrom, lines)| {
-        let acc = {
-            let mut local_accs = Vec::new();
-            (0..rayon::current_num_threads()).for_each(|_| {
-                local_accs.push(SyncUnsafeCell::new(Layers::default()));
-            });
-            lines.par_iter().for_each(|line| {
-                let thread_id = rayon::current_thread_index().unwrap();
-                let acc = unsafe { &mut *local_accs[thread_id].get() };
-                match line.feat {
-                    "gene" => {
-                        acc.layer.push(line.outer_layer());
+    timed("building index", || {
+        records.par_iter().for_each(|(chrom, lines)| {
+            let acc = {
+                let mut local_accs = Vec::new();
+                (0..rayon::current_num_threads()).for_each(|_| {
+                    local_accs.push(SyncUnsafeCell::new(Layers::default()));
+                });
+                lines.par_iter().for_each(|line| {
+                    let thread_id = rayon::current_thread_index().unwrap();
+                    let acc = unsafe { &mut *local_accs[thread_id].get() };
+                    match line.feat {
+                        "gene" => {
+                            acc.layer.push(line.outer_layer());
+                        }
+                        "transcript" => {
+                            acc.mapper
+                                .entry(line.gene_id)
+                                .or_default()
+                                .push(line.transcript_id);
+                            acc.helper.entry(line.transcript_id).or_insert(line.line);
+                        }
+                        "CDS" | "exon" | "start_codon" | "stop_codon" => {
+                            let (exon_number, suffix) = line.inner_layer();
+                            acc.inner.entry(line.transcript_id).or_default().insert(
+                                CowNaturalSort::new(format!("{}{}", exon_number, suffix).into()),
+                                vec![line.line],
+                            );
+                        }
+                        _ => {
+                            acc.inner
+                                .entry(line.transcript_id)
+                                .or_default()
+                                .entry(CowNaturalSort::new(line.feat.into()))
+                                .and_modify(|e| {
+                                    e.push(line.line);
+                                })
+                                .or_insert(vec![line.line]);
+                        }
                     }
-                    "transcript" => {
-                        acc.mapper
-                            .entry(line.gene_id)
-                            .or_default()
-                            .push(line.transcript_id);
-                        acc.helper.entry(line.transcript_id).or_insert(line.line);
-                    }
-                    "CDS" | "exon" | "start_codon" | "stop_codon" => {
-                        let (exon_number, suffix) = line.inner_layer();
-                        acc.inner.entry(line.transcript_id).or_default().insert(
-                            CowNaturalSort::new(format!("{}{}", exon_number, suffix).into()),
-                            vec![line.line],
-                        );
-                    }
-                    _ => {
-                        acc.inner
-                            .entry(line.transcript_id)
-                            .or_default()
-                            .entry(CowNaturalSort::new(line.feat.into()))
-                            .and_modify(|e| {
-                                e.push(line.line);
-                            })
-                            .or_insert(vec![line.line]);
-                    }
+                });
+
+                local_accs
+                    .into_par_iter()
+                    .map(|x| x.into_inner())
+                    .reduce_with(|mut x, y| {
+                        x.combine(y);
+                        x
+                    })
+            };
+
+            match acc {
+                Some(mut acc) => {
+                    acc.layer.par_sort_unstable_by_key(|x| x.0);
+                    index.insert(chrom, acc);
                 }
-            });
-
-            local_accs
-                .into_par_iter()
-                .map(|x| x.into_inner())
-                .reduce_with(|mut x, y| {
-                    x.combine(y);
-                    x
-                })
-        };
-
-        match acc {
-            Some(mut acc) => {
-                acc.layer.par_sort_unstable_by_key(|x| x.0);
-                index.insert(chrom, acc);
+                None => {
+                    log::warn!(
+                        "{} {} {}",
+                        "Warning:".bright_yellow().bold(),
+                        "Empty chromosome",
+                        chrom
+                    );
+                }
             }
-            None => {
-                log::warn!(
-                    "{} {} {}",
-                    "Warning:".bright_yellow().bold(),
-                    "Empty chromosome",
-                    chrom
-                );
-            }
-        }
+        })
     });
 
     let mut keys: Vec<&str> = index.iter().map(|x| *x.key()).collect();
