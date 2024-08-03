@@ -25,7 +25,20 @@ add_executable(gtfsort_cxx_ffi_test test_ffi.cxx)
 
 target_link_libraries(gtfsort_cxx_ffi_test gtfsort)
 
-add_test(NAME test_gtfsort_cxx_ffi_test COMMAND gtfsort_cxx_ffi_test ${CMAKE_CURRENT_BINARY_DIR}/data.gff3 ${CMAKE_CURRENT_BINARY_DIR}/output-mmap.gff3 ${CMAKE_CURRENT_BINARY_DIR}/output-str.gff3)
+add_test(NAME test_gtfsort_cxx_ffi_test 
+         COMMAND $<TARGET_FILE:gtfsort_cxx_ffi_test> ${CMAKE_CURRENT_BINARY_DIR}/data.gff3 ${CMAKE_CURRENT_BINARY_DIR}/output-mmap.gff3 ${CMAKE_CURRENT_BINARY_DIR}/output-str.gff3)
+
+find_program(VALGRIND "valgrind" REQUIRED)
+
+add_test(NAME test_gtfsort_cxx_ffi_test_valgrind
+         COMMAND ${VALGRIND} --error-exitcode=1 --leak-check=full --suppressions=${CMAKE_CURRENT_SOURCE_DIR}/test_ffi.supp
+                            --show-leak-kinds=all --track-origins=yes
+                            $<TARGET_FILE:gtfsort_cxx_ffi_test>
+                            ${CMAKE_CURRENT_BINARY_DIR}/data.gff3
+                            ${CMAKE_CURRENT_BINARY_DIR}/output-mmap-valgrind.gff3
+                            ${CMAKE_CURRENT_BINARY_DIR}/output-str-valgrind.gff3)
+
+add_custom_target(silence_valgrind COMMAND ${VALGRIND} --leak-check=full --gen-suppressions=yes $<TARGET_FILE:gtfsort_cxx_ffi_test> ${CMAKE_CURRENT_BINARY_DIR}/data.gff3 ${CMAKE_CURRENT_BINARY_DIR}/output-mmap-valgrind-suppression.gff3 ${CMAKE_CURRENT_BINARY_DIR}/output-str-valgrind-suppression.gff3)
 
 set(DATA_URL "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M35/gencode.vM35.chr_patch_hapl_scaff.basic.annotation.gff3.gz")
 

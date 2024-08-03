@@ -99,6 +99,34 @@ pub mod c_ffi {
         Err(*mut GtfSortErrorFFI),
     }
 
+    impl SortAnnotationsRet {
+        pub fn clear(&mut self) {
+            unsafe {
+                match self {
+                    SortAnnotationsRet::Ok(p) => {
+                        if !p.is_null() {
+                            let p = Box::from_raw(*p);
+                            cstr_free!(p.input);
+                            cstr_free!(p.output);
+                        }
+                    }
+                    SortAnnotationsRet::Err(p) => {
+                        if !p.is_null() {
+                            let p = Box::from_raw(*p);
+                            cstr_free!(p.message);
+                        }
+                    }
+                }
+            }
+        }
+        pub fn is_filled(&self) -> bool {
+            match self {
+                SortAnnotationsRet::Ok(p) => !p.is_null(),
+                SortAnnotationsRet::Err(p) => !p.is_null(),
+            }
+        }
+    }
+
     pub const GTFSORT_PARSE_MODE_GTF: u8 = 1;
     pub const GTFSORT_PARSE_MODE_GFF: u8 = 2;
     pub const GTFSORT_PARSE_MODE_GFF3: u8 = 2;
@@ -137,23 +165,9 @@ pub mod c_ffi {
     /// ret must be a valid pointer to a [SortAnnotationsRet] that is allocated by [gtfsort_new_sort_annotations_ret].
     #[no_mangle]
     pub unsafe extern "C" fn gtfsort_free_sort_annotations_ret(ret: *mut SortAnnotationsRet) {
-        let b = Box::from_raw(ret);
+        let mut b = Box::from_raw(ret);
 
-        match *b {
-            SortAnnotationsRet::Ok(p) => {
-                if !p.is_null() {
-                    let p = Box::from_raw(p);
-                    cstr_free!(p.input);
-                    cstr_free!(p.output);
-                }
-            }
-            SortAnnotationsRet::Err(p) => {
-                if !p.is_null() {
-                    let p = Box::from_raw(p);
-                    cstr_free!(p.message);
-                }
-            }
-        }
+        b.clear();
     }
 
     /// Sorts the annotations in the given GTF or GFF3 file and writes the result to the output file.
@@ -181,6 +195,7 @@ pub mod c_ffi {
 
         if !result_ptr.is_null() {
             unsafe {
+                result_ptr.as_mut().unwrap().clear();
                 *result_ptr = match result {
                     Ok(r) => SortAnnotationsRet::Ok(Box::into_raw(Box::new(r.into()))),
                     Err(e) => SortAnnotationsRet::Err(Box::into_raw(Box::new(e.into()))),
@@ -264,6 +279,7 @@ pub mod c_ffi {
 
         if !result_ptr.is_null() {
             unsafe {
+                result_ptr.as_mut().unwrap().clear();
                 *result_ptr = match result {
                     Ok(r) => SortAnnotationsRet::Ok(Box::into_raw(Box::new(r.into()))),
                     Err(e) => SortAnnotationsRet::Err(Box::into_raw(Box::new(e.into()))),
