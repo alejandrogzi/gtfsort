@@ -20,10 +20,19 @@ jobs:
         with:
           toolchain: nightly
     
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts
+    
       - name: Install Hyperfine
         run: cargo install hyperfine --force --locked
       
       - name: Run Benchmark
+        env:
+          GITHUB_REPO_OWNER: ${{ github.event.repository.owner.login }}
+          GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./benchmark.sh
       
       - name: Upload Benchmark Results

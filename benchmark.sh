@@ -34,6 +34,10 @@ fi
 
 join_by() { local IFS="$1"; shift; echo "$*"; }
 
+encode_body_json() {
+  node -e "const process = require('process'); const fs = require('fs'); let data = JSON.parse(process.argv[1]); const stdin = fs.readFileSync(0, 'utf-8'); data.body = stdin; console.log(JSON.stringify(data));" "$@"
+}
+
 if [ ! -f tests/sink.gff3 ] && [ ! -L tests/sink.gff3 ]; then
   ln -s /dev/null tests/sink.gff3
 fi
@@ -61,3 +65,48 @@ hyperfine --warmup 3 --min-runs 5 \
     --cleanup 'cargo clean' \
     "$@" \
     "short_name=\$(echo '{commit}' | cut -d= -f1); target/release/gtfsort -i '$TEST_FILE' -o tests/output_\${short_name}.gff3 -t ${NUM_THREADS} 2>&1 | awk -v name=\$short_name '{ print \"[\"name\" -> file] \" \$0 }' | tee -a '$STDOUT_FILE'"
+
+if [ "$GITHUB_TOKEN" != "" ] && \
+   [ "$GITHUB_REPO_NAME" != "" ] && \
+   [ "$GITHUB_REPO_OWNER" != "" ] && \
+   git diff --exit-code --quiet; then
+  
+  current_commit_sha=$(git rev-parse HEAD)
+
+  echo "Reporting on $GITHUB_REPO_OWNER/$GITHUB_REPO_NAME:$current_commit_sha"
+
+  {
+    echo "# Benchmark results for $current_commit_sha"
+    echo
+    echo "## Timing Data"
+    echo
+    cat tests/benchmark_file.md
+    echo
+    echo "<details><summary>Download CSV</summary>"
+    echo
+    echo '```'
+    cat tests/benchmark_file.csv
+    echo '```'
+    echo
+    echo "</details>"
+    echo
+    echo "## Memory Usage and Logs"
+    echo
+    echo "<details><summary>Click to expand</summary>"
+    echo
+    echo '```'
+    cat $STDOUT_FILE
+    echo '```'
+    echo
+    echo "</details>"
+  } | \
+    encode_body_json '{"path":"benchmark.md","position":1,"line":1}' | \
+      curl -L \
+        -X POST \
+        -H "Accept: application/vnd.github+json" \
+        -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/commits/$current_commit_sha/comments" \
+        -d @- || echo "Failed to post benchmark results"
+
+fi
