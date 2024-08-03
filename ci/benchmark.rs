@@ -128,11 +128,6 @@ fn report_to_github(
         .map(|s| s.trim().to_string())
         .unwrap();
 
-    if !Path::new(".github/workflows/benchmark.yml").exists() {
-        eprintln!("Benchmark workflow not found, skipping GitHub comment");
-        return Ok(());
-    }
-
     if let Some((token, repo_name, repo_owner)) = env::var("GITHUB_TOKEN")
         .and_then(|token| {
             env::var("GITHUB_REPO_NAME").and_then(|repo_name| {
@@ -175,9 +170,6 @@ fn report_to_github(
 
         #[derive(serde::Serialize)]
         struct Body {
-            pub path: String,
-            pub position: u32,
-            pub line: u32,
             pub body: String,
         }
 
@@ -194,15 +186,7 @@ fn report_to_github(
             .header("Accept", "application/vnd.github+json")
             .bearer_auth(token)
             .header("X-GitHub-Api-Version", "2022-11-28")
-            .body(
-                serde_json::to_string(&Body {
-                    path: ".github/workflows/benchmark.yml".to_string(),
-                    position: 1,
-                    line: 1,
-                    body,
-                })
-                .expect("Failed to serialize body"),
-            )
+            .body(serde_json::to_string(&Body { body }).expect("Failed to serialize body"))
             .send()?;
 
         if !res.status().is_success() {
