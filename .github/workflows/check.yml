@@ -13,6 +13,7 @@ jobs:
     env:
       GTFSORT_TEST_FEATURES_MINIMUM: "testing"
       GTFSORT_TEST_FEATURES_FULL: "testing mmap all_ffi"
+      GTFSORT_TEST_FEATURES_RELEASE: "mmap all_ffi"
 
     steps:
       - name: Checkout repository
@@ -50,6 +51,14 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: git diff --exit-code include/gtfsort.h include/gtfsort.hxx
       
+      - name: Cargo Clean
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo clean
+      
+      - name: Build Release
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo build --release --features "$GTFSORT_TEST_FEATURES_RELEASE"
+      
       - name: Upload Build Artifacts
         if: ${{ startsWith(matrix.os, 'macos') != true && matrix.rust == 'stable' }}  
         uses: actions/upload-artifact@v4
@@ -79,6 +88,7 @@ jobs:
       env:
         GTFSORT_TEST_FEATURES_MINIMUM: "testing"
         GTFSORT_TEST_FEATURES_FULL: "testing mmap all_ffi"
+        GTFSORT_TEST_FEATURES_RELEASE: "mmap all_ffi"
 
       steps:
         - name: Checkout repository
@@ -116,6 +126,14 @@ jobs:
         - name: Cargo Test with Full Feature Flags
           run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- --nocapture
         
+        - name: Cargo Clean
+          if: ${{ matrix.rust == 'stable' }}
+          run: cargo clean
+        
+        - name: Build Release
+          if: ${{ matrix.rust == 'stable' }}
+          run: cargo build --target x86_64-pc-windows-gnu --release --features $env:GTFSORT_TEST_FEATURES_RELEASE
+
         - name: Upload Build Artifacts
           if: ${{ matrix.rust == 'stable' }}
           uses: actions/upload-artifact@v4
