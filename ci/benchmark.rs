@@ -128,14 +128,11 @@ fn report_to_github(
         .map(|s| s.trim().to_string())
         .unwrap();
 
-    if let Some((token, repo_name, repo_owner)) = env::var("GITHUB_TOKEN")
-        .and_then(|token| {
-            env::var("GITHUB_REPO_NAME").and_then(|repo_name| {
-                env::var("GITHUB_REPO_OWNER").map(|repo_owner| (token, repo_name, repo_owner))
-            })
+    if let Ok((token, repo_name, repo_owner)) = env::var("GITHUB_TOKEN").and_then(|token| {
+        env::var("GITHUB_REPO_NAME").and_then(|repo_name| {
+            env::var("GITHUB_REPO_OWNER").map(|repo_owner| (token, repo_name, repo_owner))
         })
-        .ok()
-    {
+    }) {
         let mut body = String::new();
 
         body.push_str(format!("# Benchmark results on {} for:", std::env::consts::OS).as_str());
@@ -217,6 +214,7 @@ fn benchmark() -> Result<(String, String), Box<dyn std::error::Error>> {
         .map(|s| s.trim().to_string())
         .expect("Failed to get current commit");
 
+    #[allow(clippy::needless_update)]
     let code =  HyperfineCall {
         warmup: 3,
         min_runs: 5,
@@ -225,7 +223,7 @@ fn benchmark() -> Result<(String, String), Box<dyn std::error::Error>> {
         parameters: vec![("commit".to_string(), vec![format!("ref={}", args.compare_to), format!("this={}", current_location)])],
         setup: Some("short_name=$(echo '{commit}' | cut -d= -f1); git checkout -B benchmark $(echo '{commit}' | cut -d= -f2) && cargo build --release".to_string()),
         cleanup: Some("cargo clean".to_string()),
-        command: format!("short_name=$(echo '{{commit}}' | cut -d= -f1); {} -i '{}' -o tests/output_${{short_name}}.gff3 -t {} 2>&1 | awk -v name=$short_name '{{ print \"[\"name\" -> file] \" $0 }}' | tee -a '{}'", TARGET_EXEC, TEST_FILE.to_string(), num_threads, STDOUT_FILE),
+        command: format!("short_name=$(echo '{{commit}}' | cut -d= -f1); {} -i '{}' -o tests/output_${{short_name}}.gff3 -t {} 2>&1 | awk -v name=$short_name '{{ print \"[\"name\" -> file] \" $0 }}' | tee -a '{}'", TARGET_EXEC, TEST_FILE, num_threads, STDOUT_FILE),
         extras: args.hyperfine_args,
         ..Default::default()
     }.invoke().code().expect("Benchmark terminated unexpectedly");

@@ -67,6 +67,8 @@ jobs:
           path: |
             target/release/gtfsort
             target/release/libgtfsort.dylib
+            include/gtfsort.h
+            include/gtfsort.hxx
   
   check-windows:
       runs-on: windows-latest
@@ -120,9 +122,11 @@ jobs:
           with:
             name: build-artifacts-windows
             path: |
-              target/release/gtfsort.exe
-              target/release/gtfsort.dll
-
+              target/x86_64-pc-windows-gnu/release/gtfsort.exe
+              target/x86_64-pc-windows-gnu/release/gtfsort.dll
+              include/gtfsort.h
+              include/gtfsort.hxx
+        
   benchmark:
     needs: [check-unix, check-windows]
     if: ${{ needs.check-unix.result == 'success' && contains(github.event.head_commit.message, '[ci benchmark]') }}

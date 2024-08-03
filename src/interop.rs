@@ -103,8 +103,13 @@ pub mod c_ffi {
     pub const GTFSORT_PARSE_MODE_GFF: u8 = 2;
     pub const GTFSORT_PARSE_MODE_GFF3: u8 = 2;
 
+    /// Initializes the logger with the given log level.
+    /// The log level must be one of the following: trace, debug, info, warn, error.
+    ///
+    /// # Safety
+    /// level must be a valid C string.
     #[no_mangle]
-    unsafe extern "C" fn gtfsort_init_logger(level: *const c_char) {
+    pub unsafe extern "C" fn gtfsort_init_logger(level: *const c_char) {
         let level = unsafe { CStr::from_ptr(level).to_str().unwrap_or("info") };
         match level.to_ascii_lowercase().as_str() {
             "trace" => simple_logger::init_with_level(log::Level::Trace).unwrap(),
@@ -116,28 +121,52 @@ pub mod c_ffi {
         }
     }
 
+    /// Allocates a new [SortAnnotationsRet] on the Rust heap.
+    ///
+    /// # Safety
+    /// The caller is responsible for freeing the allocated memory using [gtfsort_free_sort_annotations_ret].
+    /// Do not free the memory using any other method.
     #[no_mangle]
-    unsafe extern "C" fn gtfsort_new_sort_annotations_ret() -> *mut SortAnnotationsRet {
+    pub unsafe extern "C" fn gtfsort_new_sort_annotations_ret() -> *mut SortAnnotationsRet {
         Box::into_raw(Box::new(SortAnnotationsRet::Ok(std::ptr::null_mut())))
     }
 
+    /// Frees the [SortAnnotationsRet].
+    ///
+    /// # Safety
+    /// ret must be a valid pointer to a [SortAnnotationsRet] that is allocated by [gtfsort_new_sort_annotations_ret].
     #[no_mangle]
-    unsafe extern "C" fn gtfsort_free_sort_annotations_ret(ret: SortAnnotationsRet) {
-        match ret {
-            SortAnnotationsRet::Ok(ptr) => unsafe {
-                cstr_free!((*ptr).input);
-                cstr_free!((*ptr).output);
-                drop(Box::from_raw(ptr));
-            },
-            SortAnnotationsRet::Err(ptr) => unsafe {
-                cstr_free!((*ptr).message);
-                drop(Box::from_raw(ptr));
-            },
+    pub unsafe extern "C" fn gtfsort_free_sort_annotations_ret(ret: *mut SortAnnotationsRet) {
+        let b = Box::from_raw(ret);
+
+        match *b {
+            SortAnnotationsRet::Ok(p) => {
+                if !p.is_null() {
+                    let p = Box::from_raw(p);
+                    cstr_free!(p.input);
+                    cstr_free!(p.output);
+                }
+            }
+            SortAnnotationsRet::Err(p) => {
+                if !p.is_null() {
+                    let p = Box::from_raw(p);
+                    cstr_free!(p.message);
+                }
+            }
         }
     }
 
+    /// Sorts the annotations in the given GTF or GFF3 file and writes the result to the output file.
+    ///
+    /// `result_ptr` is a pointer to a [SortAnnotationsRet] that will be set to the result of the operation.
+    /// if you don't need the result, you can pass a null pointer.
+    ///
+    /// The return value is true if the operation was successful, false otherwise.
+    ///
+    /// # Safety
+    /// input and output must be valid C strings that point to valid file paths.
     #[no_mangle]
-    unsafe extern "C" fn gtfsort_sort_annotations(
+    pub unsafe extern "C" fn gtfsort_sort_annotations(
         input: *const std::os::raw::c_char,
         output: *const std::os::raw::c_char,
         threads: usize,
@@ -162,8 +191,35 @@ pub mod c_ffi {
         ok
     }
 
+    /// Sorts the annotations in the given GTF or GFF3 string and writes the result chunk by chunk to the output callback.
+    ///
+    /// The mode must be one of the following:
+    /// - [GTFSORT_PARSE_MODE_GTF]
+    /// - [GTFSORT_PARSE_MODE_GFF3]
+    /// - [GTFSORT_PARSE_MODE_GFF]
+    ///
+    /// output is a callback function that will be called with the following arguments:
+    /// - caller_data: a pointer to the caller data
+    /// - output: a pointer to the output bytes
+    /// - len: the length of the output bytes
+    ///
+    /// The callback function should return a null pointer in case of success, or an error message in case of failure.
+    ///
+    /// caller_data is a pointer to the caller data that will be passed to the output callback.
+    ///
+    /// result_ptr is a pointer to a SortAnnotationsRet that will be set to the result of the operation.
+    /// if you don't need the result, you can pass a null pointer.
+    ///
+    /// the return value is true if the operation was successful, false otherwise.
+    ///
+    /// # Safety
+    ///
+    /// input must be a valid C string.
+    ///
+    /// The caller is responsible for freeing the error message in output callback.
+    ///
     #[no_mangle]
-    unsafe extern "C" fn gtfsort_sort_annotations_gtf_str(
+    pub unsafe extern "C" fn gtfsort_sort_annotations_gtf_str(
         mode: u8,
         input: *const c_char,
         output: extern "C" fn(*mut c_void, *const c_char, c_ulong) -> *const c_char,

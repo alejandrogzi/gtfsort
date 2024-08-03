@@ -33,7 +33,7 @@ struct SortAnnotationRetWrapper
 
     ~SortAnnotationRetWrapper()
     {
-        gtfsort_free_sort_annotations_ret(*ret);
+        gtfsort_free_sort_annotations_ret(ret);
     }
 };
 
