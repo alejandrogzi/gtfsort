@@ -1,0 +1,97 @@
+name: Cargo Check
+
+on: [push, pull_request]
+
+jobs:
+  check-unix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [stable, nightly]
+        os: [ubuntu-latest, macos-latest]
+    
+    env:
+      GTFSORT_TEST_FEATURES_MINIMUM: "testing"
+      GTFSORT_TEST_FEATURES_FULL: "testing mmap all_ffi"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+      
+      - name: Cargo Check with Minimum Feature Flags
+        run: cargo check --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM"
+
+      - name: Cargo Check with Full Feature Flags
+        run: cargo check --features "$GTFSORT_TEST_FEATURES_FULL"
+    
+      - name: Cargo Clippy with Minimum Feature Flags
+        run: cargo clippy --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM" -- -D warnings
+    
+      - name: Cargo Clippy with Full Feature Flags
+        run: cargo clippy --features "$GTFSORT_TEST_FEATURES_FULL" -- -D warnings
+
+      - name: Cargo Test with Minimum Feature Flags
+        # saves time on more expensive machines
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: RUST_BACKTRACE=full cargo test --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM" -- --nocapture
+      
+      - name: Cargo Build Release
+        run: cargo build --release --features "$GTFSORT_TEST_FEATURES_FULL"
+      
+      - name: Cargo Test with Full Feature Flags
+        run: RUST_BACKTRACE=full cargo test --features "$GTFSORT_TEST_FEATURES_FULL" -- --nocapture
+      
+      - name: Check C headers are up-to-date
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: git diff --exit-code include/gtfsort.h
+  
+  check-windows:
+      runs-on: windows-latest
+      strategy:
+        matrix:
+          rust: [stable, nightly]
+
+      env:
+        GTFSORT_TEST_FEATURES_MINIMUM: "testing"
+        GTFSORT_TEST_FEATURES_FULL: "testing mmap all_ffi"
+
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v2
+        
+        - name: Set up MSYS2 for Windows
+          uses: msys2/setup-msys2@v2
+          with:
+            msystem: MINGW64
+
+        - name: Set up Rust
+          uses: actions-rs/toolchain@v1
+          with:
+            toolchain: ${{ matrix.rust }}
+            target: x86_64-pc-windows-gnu
+        
+        - name: Cargo Check with Minimum Feature Flags
+          run: cargo check --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM
+
+        - name: Cargo Check with Full Feature Flags
+          run: cargo check --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL
+
+        - name: Cargo Clippy with Minimum Feature Flags
+          run: cargo clippy --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM -- -D warnings
+
+        - name: Cargo Clippy with Full Feature Flags
+          run: cargo clippy --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- -D warnings
+
+        - name: Cargo Test with Minimum Feature Flags
+          run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM -- --nocapture
+        
+        - name: Cargo Build Release
+          run: cargo build --target x86_64-pc-windows-gnu --release --features $env:GTFSORT_TEST_FEATURES_FULL
+        
+        - name: Cargo Test with Full Feature Flags
+          run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- --nocapture
