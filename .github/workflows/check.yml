@@ -115,6 +115,7 @@ jobs:
           run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- --nocapture
         
         - name: Upload Build Artifacts
+          if: ${{ matrix.rust == 'stable' }}
           uses: actions/upload-artifact@v4
           with:
             name: build-artifacts-windows
