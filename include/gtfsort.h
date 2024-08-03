@@ -19,6 +19,12 @@
 
 #define GTFSORT_ERROR_PARSE_ERROR 3
 
+#define GTFSORT_PARSE_MODE_GFF 2
+
+#define GTFSORT_PARSE_MODE_GFF3 2
+
+#define GTFSORT_PARSE_MODE_GTF 1
+
 typedef struct SortAnnotationsJobResultFFI {
   const char *input;
   const char *output;

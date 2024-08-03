@@ -48,7 +48,7 @@ jobs:
       
       - name: Check C headers are up-to-date
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: git diff --exit-code include/gtfsort.h
+        run: git diff --exit-code include/gtfsort.h include/gtfsort.hxx
   
   check-windows:
       runs-on: windows-latest

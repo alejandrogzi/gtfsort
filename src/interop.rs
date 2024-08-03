@@ -99,8 +99,9 @@ pub mod c_ffi {
         Err(*mut GtfSortErrorFFI),
     }
 
-    const GTFSORT_PARSE_MODE_GTF: u8 = 1;
-    const GTFSORT_PARSE_MODE_GFF3: u8 = 2;
+    pub const GTFSORT_PARSE_MODE_GTF: u8 = 1;
+    pub const GTFSORT_PARSE_MODE_GFF: u8 = 2;
+    pub const GTFSORT_PARSE_MODE_GFF3: u8 = 2;
 
     #[no_mangle]
     unsafe extern "C" fn gtfsort_init_logger(level: *const c_char) {
