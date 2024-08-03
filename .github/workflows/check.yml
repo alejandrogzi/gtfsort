@@ -49,6 +49,24 @@ jobs:
       - name: Check C headers are up-to-date
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: git diff --exit-code include/gtfsort.h include/gtfsort.hxx
+      
+      - name: Upload Build Artifacts
+        if: ${{ startsWith(matrix.os, 'macos') != true && matrix.rust == 'stable' }}  
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}
+          path: |
+            target/release/gtfsort
+            target/release/libgtfsort.so
+      
+      - name: Upload Build Artifacts (macOS)
+        if: ${{ startsWith(matrix.os, 'macos') && matrix.rust == 'stable' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}
+          path: |
+            target/release/gtfsort
+            target/release/libgtfsort.dylib
   
   check-windows:
       runs-on: windows-latest
@@ -95,6 +113,14 @@ jobs:
         
         - name: Cargo Test with Full Feature Flags
           run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- --nocapture
+        
+        - name: Upload Build Artifacts
+          uses: actions/upload-artifact@v4
+          with:
+            name: build-artifacts-windows
+            path: |
+              target/release/gtfsort.exe
+              target/release/gtfsort.dll
 
   benchmark:
     needs: [check-unix, check-windows]
