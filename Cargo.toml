@@ -10,6 +10,7 @@ repository = "https://github.com/alejandrogzi/gtfsort"
 readme = "README.md"
 keywords = ["sort", "gtf", "cli", "gtfsort"]
 categories = ["command-line-utilities", "science"]
+default-run = "gtfsort"
 
 [dependencies]
 clap = {version = "4.0", features = ["derive"]}
