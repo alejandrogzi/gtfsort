@@ -2,7 +2,7 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: gtfsort
+title: "gtfsort: A tool for sorting GTF files"
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
@@ -10,12 +10,19 @@ type: software
 authors:
   - given-names: Alejandro
     family-names: Gonzales-Irribarren
-    email: jose.gonzalesdezavala1@unmsm.edu.pe
+    email: alejandrxgzi@gmail.com
     affiliation: >-
-      Laboratorio Internacional de Investigación sobre el
-      Genoma Humano, Universidad Nacional Autónoma de
-      México, Santiago de Querétaro, 76230, México
+      LOEWE Centre for Translational Biodiversity Genomics, 
+      Senckenberganlage 25, 60325 Frankfurt, Germany
     orcid: 'https://orcid.org/0000-0001-7010-8146'
+  - given-names: Anne
+    family-names: Fu
+    email: anne.fu@utdallas.edu
+    affiliation: >-
+      School of Natural Sciences and Mathematics, The University of
+      Texas at Dallas, Richardson, TX 75080, USA
+    orcid: 'https://orcid.org/0000-0002-9025-6071'
+
 identifiers:
   - type: url
     value: 'https://github.com/alejandrogzi/gtfsort'
@@ -34,6 +41,8 @@ abstract: >-
 keywords:
   - sort-algorithm
   - gtf
+  - gff3
   - gene-annotation
 license: MIT
-version: 0.2.1
+version: 0.2.3
+doi: 10.1101/2023.10.21.563454
