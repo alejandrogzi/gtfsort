@@ -1,0 +1,17 @@
+{
+   trust_rayon
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:posix_memalign
+   fun:__rdl_alloc
+   fun:_ZN15crossbeam_epoch9collector9Collector8register17h8d26634eab670dffE
+   fun:_ZN3std3sys12thread_local6native4lazy20Storage$LT$T$C$D$GT$10initialize17he680c1d752169542E
+   fun:_ZN15crossbeam_deque5deque16Stealer$LT$T$GT$5steal17h7381342c48a3a752E
+   fun:_ZN10rayon_core8registry12WorkerThread15wait_until_cold17h39209a6af0554d89E
+   fun:_ZN10rayon_core8registry13ThreadBuilder3run17h2078229982564043E
+   fun:_ZN3std3sys9backtrace28__rust_begin_short_backtrace17h2049700af8b191a3E
+   fun:_ZN4core3ops8function6FnOnce40call_once$u7b$$u7b$vtable.shim$u7d$$u7d$17h134a7983b70b9c68E
+   fun:_ZN3std3sys3pal4unix6thread6Thread3new12thread_start17h5612bc7ad1520d7aE
+   fun:start_thread
+   fun:clone
+}

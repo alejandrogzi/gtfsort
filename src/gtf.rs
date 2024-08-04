@@ -1,4 +1,6 @@
 mod attr;
+use std::borrow::Cow;
+
 pub use attr::*;
 
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -15,9 +17,9 @@ pub struct Record<'a> {
 
 impl<'a> Record<'a> {
     #[inline]
-    pub fn parse<const SEP: u8>(line: &'a str) -> Result<Self, &'static str> {
+    pub fn parse<const SEP: u8>(line: &'a str) -> Result<Self, Cow<'static, str>> {
         if line.is_empty() {
-            return Err("Empty line");
+            return Err("Empty line".into());
         }
 
         let mut fields = line.split('\t');
@@ -33,7 +35,7 @@ impl<'a> Record<'a> {
             fields.next().ok_or("Missing attributes")?,
         );
 
-        let attributes = Attribute::parse::<SEP>(attrs_str).unwrap();
+        let attributes = Attribute::parse::<SEP>(attrs_str).map_err(|e| e.to_string())?;
 
         Ok(Self {
             chrom,
