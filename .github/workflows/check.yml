@@ -146,7 +146,7 @@ jobs:
               ./gtfsort/include/gtfsort.hxx
         
   py_port:
-    needs: [check-unix, check-windows]
+    needs: [check-unix]
     runs-on: ubuntu-latest
     strategy:
       matrix:
