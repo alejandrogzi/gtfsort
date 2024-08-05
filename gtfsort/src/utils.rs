@@ -275,7 +275,7 @@ pub fn write_obj_mmaped<'a, P: AsRef<Path> + Debug>(
 pub fn parallel_parse<const SEP: u8>(s: &str) -> Result<ChromRecord<'_>, &'static str> {
     let x = s
         .par_lines()
-        .filter(|line| !line.starts_with("#"))
+        .filter(|line| !line.starts_with('#'))
         .filter_map(|line| Record::parse::<SEP>(line).ok())
         .fold(HashMap::new, |mut acc: ChromRecord, record| {
             acc.entry(record.chrom).or_default().push(record);

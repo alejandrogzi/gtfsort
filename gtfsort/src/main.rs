@@ -2,7 +2,7 @@
 //! A fast and efficient GTF sorter tool.
 //!
 //! ## Overview
-//! `gtfsort` is a rapid chr/pos/feature GTF2.5-3 sorter using a lexicographic-based
+//! `gtfsort` is a rapid chr/pos/feature GTF/GFF sorter using a lexicographic-based
 //! index ordering algorithm written in Rust. This tool is intended to be used as a
 //! standalone command-line tool. The primary goal of this tool is to sort GTF files
 //! by chromosome, position and feature in a fast and memory-efficient way.
@@ -31,8 +31,8 @@ use gtfsort::*;
 #[derive(Parser, Debug)]
 #[clap(
     name = "gtfsort",
-    version = "0.2.2",
-    author = "Alejandro Gonzales-Irribarren <jose.gonzalesdezavala1@unmsm.edu.pe>",
+    version = "0.2.3",
+    author = "alejandrogzi <alejandrxgzi@gmail.com>, eternal-flame-AD <yume@yumechi.jp>",
     about = "An optimized chr/pos/feature GTF2.5-3 sorter using a lexicographic-based index ordering algorithm written in Rust."
 )]
 struct Args {
