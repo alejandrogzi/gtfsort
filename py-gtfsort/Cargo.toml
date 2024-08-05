@@ -1,7 +1,6 @@
 [package]
-name = "py-gtfsort"
+name = "gtfsortpy"
 version = "0.0.1"
-edition = "2021"
 authors = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
 edition = "2021"
 license = "MIT"
@@ -11,7 +10,7 @@ repository = "https://github.com/alejandrogzi/gtfsort"
 keywords = ["sort", "gtf", "gff", "gtfsort"]
 
 [lib]
-name = "gxfsort"
+name = "gtfsort"
 crate-type = ["cdylib"]
 
 [dependencies]

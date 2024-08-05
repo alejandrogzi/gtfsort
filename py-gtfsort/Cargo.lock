@@ -305,6 +305,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gtfsortpy"
+version = "0.0.1"
+dependencies = [
+ "gtfsort",
+ "num_cpus",
+ "pyo3",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -521,15 +530,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e719e8df665df0d1c8fbfd238015744736151d4445ec0836b8e628aae103b77"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "py-gtfsort"
-version = "0.1.0"
-dependencies = [
- "gtfsort",
- "num_cpus",
- "pyo3",
 ]
 
 [[package]]

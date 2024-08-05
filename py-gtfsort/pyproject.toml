@@ -3,9 +3,12 @@ requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "py-gtfsort"
+name = "gtfsortpy"
 description = "Python port to an optimized chr/pos/feature GTF/GFF sorter using a lexicographic-based index ordering algorithm written in Rust"
-authors = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
+authors = [
+    { name = "alejandrogzi", email = "alejandrxgzi@gmail.com"}, 
+    { name = "eternal-flame-AD", email = "yume@yumechi.jp"},
+]
 maintainers = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
 requires-python = ">=3.8"
 dynamic = ["version"]
