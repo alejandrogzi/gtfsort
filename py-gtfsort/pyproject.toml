@@ -9,7 +9,6 @@ authors = [
     { name = "alejandrogzi", email = "alejandrxgzi@gmail.com"}, 
     { name = "eternal-flame-AD", email = "yume@yumechi.jp"},
 ]
-maintainers = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
 requires-python = ">=3.8"
 dynamic = ["version"]
 classifiers = [
