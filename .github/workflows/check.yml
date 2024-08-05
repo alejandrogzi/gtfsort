@@ -25,39 +25,39 @@ jobs:
           toolchain: ${{ matrix.rust }}
       
       - name: Cargo Check with Minimum Feature Flags
-        run: cargo check --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM"
+        run: cargo check --manifest-path ./gtfsort/Cargo.toml --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM"
 
       - name: Cargo Check with Full Feature Flags
-        run: cargo check --features "$GTFSORT_TEST_FEATURES_FULL"
+        run: cargo check --manifest-path ./gtfsort/Cargo.toml --features "$GTFSORT_TEST_FEATURES_FULL"
     
       - name: Cargo Clippy with Minimum Feature Flags
-        run: cargo clippy --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM" -- -D warnings
+        run: cargo clippy --manifest-path ./gtfsort/Cargo.toml --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM" -- -D warnings
     
       - name: Cargo Clippy with Full Feature Flags
-        run: cargo clippy --features "$GTFSORT_TEST_FEATURES_FULL" -- -D warnings
+        run: cargo clippy --manifest-path ./gtfsort/Cargo.toml --features "$GTFSORT_TEST_FEATURES_FULL" -- -D warnings
 
       - name: Cargo Test with Minimum Feature Flags
         # saves time on more expensive machines
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: RUST_BACKTRACE=full cargo test --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM" -- --nocapture
+        run: RUST_BACKTRACE=full cargo test --manifest-path ./gtfsort/Cargo.toml --no-default-features --features "$GTFSORT_TEST_FEATURES_MINIMUM" -- --nocapture
       
       - name: Cargo Build Release
-        run: cargo build --release --features "$GTFSORT_TEST_FEATURES_FULL"
+        run: cargo build --manifest-path ./gtfsort/Cargo.toml --release --features "$GTFSORT_TEST_FEATURES_FULL"
       
       - name: Cargo Test with Full Feature Flags
-        run: RUST_BACKTRACE=full cargo test --features "$GTFSORT_TEST_FEATURES_FULL" -- --nocapture
+        run: RUST_BACKTRACE=full cargo test --manifest-path ./gtfsort/Cargo.toml --features "$GTFSORT_TEST_FEATURES_FULL" -- --nocapture
       
       - name: Check C headers are up-to-date
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: git diff --exit-code include/gtfsort.h include/gtfsort.hxx
+        run: git diff --exit-code ./gtfsort/include/gtfsort.h ./gtfsort/include/gtfsort.hxx
       
       - name: Cargo Clean
         if: ${{ matrix.rust == 'stable' }}
-        run: cargo clean
+        run: cargo clean --manifest-path ./gtfsort/Cargo.toml 
       
       - name: Build Release
         if: ${{ matrix.rust == 'stable' }}
-        run: cargo build --release --features "$GTFSORT_TEST_FEATURES_RELEASE"
+        run: cargo build --manifest-path ./gtfsort/Cargo.toml --release --features "$GTFSORT_TEST_FEATURES_RELEASE"
       
       - name: Upload Build Artifacts
         if: ${{ startsWith(matrix.os, 'macos') != true && matrix.rust == 'stable' }}  
@@ -65,8 +65,8 @@ jobs:
         with:
           name: build-artifacts-${{ matrix.os }}
           path: |
-            target/release/gtfsort
-            target/release/libgtfsort.so
+            ./gtfsort/target/release/gtfsort
+            ./gtfsort/target/release/libgtfsort.so
       
       - name: Upload Build Artifacts (macOS)
         if: ${{ startsWith(matrix.os, 'macos') && matrix.rust == 'stable' }}
@@ -74,10 +74,10 @@ jobs:
         with:
           name: build-artifacts-${{ matrix.os }}
           path: |
-            target/release/gtfsort
-            target/release/libgtfsort.dylib
-            include/gtfsort.h
-            include/gtfsort.hxx
+            ./gtfsort/target/release/gtfsort
+            ./gtfsort/target/release/libgtfsort.dylib
+            ./gtfsort/include/gtfsort.h
+            ./gtfsort/include/gtfsort.hxx
   
   check-windows:
       runs-on: windows-latest
@@ -106,33 +106,33 @@ jobs:
             target: x86_64-pc-windows-gnu
         
         - name: Cargo Check with Minimum Feature Flags
-          run: cargo check --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM
+          run: cargo check --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM
 
         - name: Cargo Check with Full Feature Flags
-          run: cargo check --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL
+          run: cargo check --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL
 
         - name: Cargo Clippy with Minimum Feature Flags
-          run: cargo clippy --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM -- -D warnings
+          run: cargo clippy --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM -- -D warnings
 
         - name: Cargo Clippy with Full Feature Flags
-          run: cargo clippy --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- -D warnings
+          run: cargo clippy --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- -D warnings
 
         - name: Cargo Test with Minimum Feature Flags
-          run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM -- --nocapture
+          run: $env:RUST_BACKTRACE="full"; cargo test --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --no-default-features --features $env:GTFSORT_TEST_FEATURES_MINIMUM -- --nocapture
         
         - name: Cargo Build Release
-          run: cargo build --target x86_64-pc-windows-gnu --release --features $env:GTFSORT_TEST_FEATURES_FULL
+          run: cargo build --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --release --features $env:GTFSORT_TEST_FEATURES_FULL
         
         - name: Cargo Test with Full Feature Flags
-          run: $env:RUST_BACKTRACE="full"; cargo test --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- --nocapture
+          run: $env:RUST_BACKTRACE="full"; cargo test --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --features $env:GTFSORT_TEST_FEATURES_FULL -- --nocapture
         
         - name: Cargo Clean
           if: ${{ matrix.rust == 'stable' }}
-          run: cargo clean
+          run: cargo clean --manifest-path ./gtfsort/Cargo.toml 
         
         - name: Build Release
           if: ${{ matrix.rust == 'stable' }}
-          run: cargo build --target x86_64-pc-windows-gnu --release --features $env:GTFSORT_TEST_FEATURES_RELEASE
+          run: cargo build --manifest-path ./gtfsort/Cargo.toml --target x86_64-pc-windows-gnu --release --features $env:GTFSORT_TEST_FEATURES_RELEASE
 
         - name: Upload Build Artifacts
           if: ${{ matrix.rust == 'stable' }}
@@ -140,11 +140,43 @@ jobs:
           with:
             name: build-artifacts-windows
             path: |
-              target/x86_64-pc-windows-gnu/release/gtfsort.exe
-              target/x86_64-pc-windows-gnu/release/gtfsort.dll
-              include/gtfsort.h
-              include/gtfsort.hxx
+              ./gtfsort/target/x86_64-pc-windows-gnu/release/gtfsort.exe
+              ./gtfsort/target/x86_64-pc-windows-gnu/release/gtfsort.dll
+              ./gtfsort/include/gtfsort.h
+              ./gtfsort/include/gtfsort.hxx
         
+  py_port:
+    needs: [check-unix, check-windows]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+        target: [x86_64, x86, aarch64]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter --manifest-path py-gtfsort/Cargo.toml
+          sccache: 'true'
+          manylinux: auto
+
+      - name: Install built package
+        run: |
+          pip install gtfsortpy --no-index --find-links dist --force-reinstall
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+
   benchmark:
     needs: [check-unix, check-windows]
     if: ${{ needs.check-unix.result == 'success' && contains(github.event.head_commit.message, '[ci benchmark]') }}
@@ -173,20 +205,20 @@ jobs:
         run: git fetch upstream
 
       - name: Build Benchmark
-        run: cargo build --release --bin gtfsort-benchmark --features "mmap benchmark"
+        run: cargo build --manifest-path ./gtfsort/Cargo.toml --release --bin gtfsort-benchmark --features "mmap benchmark"
       
       - name: Run Benchmark
         env:
           GITHUB_REPO_OWNER: ${{ github.event.repository.owner.login }}
           GITHUB_REPO_NAME: ${{ github.event.repository.name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: target/release/gtfsort-benchmark -r upstream/master -- --show-output
+        run: ./gtfsort/target/release/gtfsort-benchmark -r upstream/master -- --show-output
       
       - name: Upload Benchmark Results
         uses: actions/upload-artifact@v4
         with:
             name: benchmark-results-${{ matrix.os }}
             path: |
-              tests/benchmark_*.csv
-              tests/benchmark_*.md
-              tests/benchmark-output.txt
+              ./gtfsort/tests/benchmark_*.csv
+              ./gtfsort/tests/benchmark_*.md
+              ./gtfsort/tests/benchmark-output.txt
