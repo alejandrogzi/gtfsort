@@ -23,3 +23,12 @@ homepage = "https://github.com/alejandrogz/gtfsort"
 [tool.maturin]
 features = ["pyo3/extension-module"]
 
+[tool.hatch.envs.default]
+dependencies = [
+    "pandas",
+    "pytest",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:test}"
+
