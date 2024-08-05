@@ -10,6 +10,9 @@ use std::sync::{Arc, Mutex};
 
 use gtfsort::{sort_annotations, sort_annotations_string};
 
+#[cfg(feature = "test")]
+use gtfsort::test_utils::get_test_file_gff3_gencode_mouse_m35;
+
 #[pyfunction]
 fn sort(py: Python, input: PyObject, output: PyObject, threads: Option<usize>) -> PyResult<String> {
     let input = PathBuf::from(input.extract::<String>(py)?);
@@ -64,10 +67,20 @@ fn sort_from_string<'a>(
     }
 }
 
+#[cfg(feature = "test")]
+#[pyfunction]
+fn get_test_file() -> PyResult<PathBuf> {
+    let test_file = get_test_file_gff3_gencode_mouse_m35();
+    Ok(PathBuf::from(test_file.name.to_string()))
+}
+
 #[pymodule]
-#[pyo3(name = "gxfsort")]
-fn py_gtfsort(_py: Python, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "gtfsortpy")]
+fn gtfsortpy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sort, m)?)?;
     m.add_function(wrap_pyfunction!(sort_from_string, m)?)?;
+
+    #[cfg(feature = "test")]
+    m.add_function(wrap_pyfunction!(get_test_file, m)?)?;
     Ok(())
 }

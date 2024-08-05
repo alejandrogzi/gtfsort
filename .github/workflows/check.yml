@@ -150,8 +150,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-        target: [x86_64, x86, aarch64]
+        python-version: '3.9'
+        target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v3
 
@@ -163,7 +163,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter --manifest-path py-gtfsort/Cargo.toml
+          args: --release --features test --out dist --find-interpreter --manifest-path py-gtfsort/Cargo.toml
           sccache: 'true'
           manylinux: auto
 

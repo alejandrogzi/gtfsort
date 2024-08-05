@@ -10,11 +10,14 @@ repository = "https://github.com/alejandrogzi/gtfsort"
 keywords = ["sort", "gtf", "gff", "gtfsort"]
 
 [lib]
-name = "gtfsort"
+name = "gtfsortpy"
 crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.20.0"
-gtfsort = { path = "../gtfsort" }
+gtfsort = { path = "../gtfsort", default-features = false }
 num_cpus = "1.16.0"
 
+[features]
+default = ["gtfsort/default"]
+test = ["default","gtfsort/testing"]
