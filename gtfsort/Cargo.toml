@@ -1,14 +1,14 @@
 [package]
 name = "gtfsort"
-version = "0.2.2"
-authors = ["alejandrogzi <jose.gonzalesdezavala1@unmsm.edu.pe>"]
+version = "0.2.3"
+authors = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
 edition = "2021"
 license = "MIT"
-description = "An optimized chr/pos/feature GTF2.5-3 sorter using a lexicographic-based index ordering algorithm written in Rust."
+description = "An optimized chr/pos/feature GTF/GFF sorter using a lexicographic-based index ordering algorithm written in Rust."
 homepage = "https://github.com/alejandrogzi/gtfsort"
 repository = "https://github.com/alejandrogzi/gtfsort"
 readme = "README.md"
-keywords = ["sort", "gtf", "cli", "gtfsort"]
+keywords = ["sort", "gtf", "gff", "gtfsort"]
 categories = ["command-line-utilities", "science"]
 default-run = "gtfsort"
 

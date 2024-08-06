@@ -1,0 +1,23 @@
+[package]
+name = "gtfsortpy"
+version = "0.0.1"
+authors = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
+edition = "2021"
+license = "MIT"
+description = "Python port to an optimized chr/pos/feature GTF/GFF sorter using a lexicographic-based index ordering algorithm written in Rust"
+homepage = "https://github.com/alejandrogzi/gtfsort"
+repository = "https://github.com/alejandrogzi/gtfsort"
+keywords = ["sort", "gtf", "gff", "gtfsort"]
+
+[lib]
+name = "gtfsortpy"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.20.0"
+gtfsort = { path = "../gtfsort", default-features = false }
+num_cpus = "1.16.0"
+
+[features]
+default = ["gtfsort/default"]
+test = ["default","gtfsort/testing"]

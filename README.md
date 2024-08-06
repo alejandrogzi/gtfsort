@@ -20,7 +20,7 @@ While current tools (most of them GFF3-focused) have been recommended for sortin
 > 
 > If you use gtfsort in your work, please cite:
 > 
-> Gonzales-Irribarren A. gtfsort: a tool to efficiently sort GTF files. bioRxiv 2023.10.21.563454; doi: https://doi.org/10.1101/2023.10.21.563454
+> Gonzales-Irribarren A and Fu. A. gtfsort: a tool to efficiently sort GTF files. bioRxiv 2023.10.21.563454; doi: https://doi.org/10.1101/2023.10.21.563454
 
 ## Usage
 ``` rust
@@ -36,7 +36,7 @@ Options:
     --version: print version
 ```
 
-> What's new on v.0.2.2
+> What's new on v.0.2.3
 >
 > - **gtfsort now supports GFF sorting!**
 > - Now gtfsort is bit more faster (~0.2s); 1.9GB (*Cyprinus carpio carpio*) in 6.7s

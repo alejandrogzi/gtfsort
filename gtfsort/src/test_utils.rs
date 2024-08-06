@@ -47,7 +47,17 @@ impl Deref for TempFile {
 impl Drop for TempFile {
     fn drop(&mut self) {
         if self.cleanup {
-            std::fs::remove_file(&self.path).unwrap();
+            // std::fs::remove_file(&self.path).unwrap();
+            if self.path.exists() {
+                if let Err(e) = std::fs::remove_file(&self.path) {
+                    eprintln!(
+                        "Warning: Failed to remove temporary file {:?}: {:?}",
+                        self.path, e
+                    );
+                }
+            } else {
+                eprintln!("Warning: Temporary file {:?} does not exist.", self.path);
+            }
         }
     }
 }
@@ -176,7 +186,7 @@ pub fn crc32_hex<R: Read>(mut r: R) -> String {
 }
 
 pub struct TestFile {
-    name: String,
+    pub name: String,
     expect_output_cksum: Vec<&'static str>,
 }
 

@@ -6,15 +6,17 @@ pub mod ord;
 pub use ord::CowNaturalSort;
 
 pub mod utils;
-use thiserror::Error;
 pub use utils::*;
 
 pub mod interop;
 
 #[cfg(feature = "testing")]
 pub mod test_utils;
+#[cfg(feature = "testing")]
+pub use test_utils::*;
 
 use std::{io, path::PathBuf};
+use thiserror::Error;
 
 #[cfg(feature = "mmap")]
 use mmap::Madvice;
