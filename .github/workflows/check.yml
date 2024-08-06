@@ -158,24 +158,29 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --features test --out dist --find-interpreter --manifest-path py-gtfsort/Cargo.toml
-          sccache: 'true'
-          manylinux: auto
 
-      - name: Install built package
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      
+      - name: Install pipx
+        run: python -m pip install --user pipx && python -m pipx ensurepath
+
+      - name: Install dependencies
+        run: pipx install hatch maturin
+
+      - name: Create Hatch environment
+        shell: bash
+        run: cd py-gtfsort && hatch env create
+
+      - name: Activate Hatch env, build and run py test
+        shell: bash
         run: |
-          pip install gtfsortpy --no-index --find-links dist --force-reinstall
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist
+          cd py-gtfsort
+          source $(hatch env find)/bin/activate
+          maturin develop --release --manifest-path Cargo.toml --features test
+          hatch run test --verbose
 
   benchmark:
     needs: [check-unix, check-windows]
