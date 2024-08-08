@@ -1,20 +1,37 @@
-![version-badge](https://img.shields.io/badge/version-0.2.2-green)
-![Crates.io](https://img.shields.io/crates/v/gtfsort)
-![GitHub](https://img.shields.io/github/license/alejandrogzi/gtfsort?color=blue)
-![Crates.io Total Downloads](https://img.shields.io/crates/d/gtfsort)
-![Conda Platform](https://img.shields.io/conda/pn/bioconda/gtfsort)
 
-# gtfsort
-An optimized chr/pos/feature GTF/GFF sorter using a lexicographically-based index ordering algorithm written in Rust.
+<p align="center">
+  <h1 align="center">
+    gtfsort
+  </h1>
 
-> - Now supporting GFF files!
+  <p align="center">
+    <a href="https://img.shields.io/badge/version-0.1.0dev-green" target="_blank">
+      <img alt="Version Badge" src="https://img.shields.io/badge/version-0.3.0-green">
+    </a>
+    <a href="https://crates.io/crates/chaintools" target="_blank">
+      <img alt="Crates.io Version" src="https://img.shields.io/crates/v/gtfsort">
+    </a>
+    <a href="https://github.com/alejandrogzi/chaintools" target="_blank">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/alejandrogzi/gtfsort?color=blue">
+    </a>
+    <a href="https://crates.io/crates/chaintools" target="_blank">
+      <img alt="Crates.io Total Downloads" src="https://img.shields.io/crates/d/gtfsort">
+    </a>
+  </p>
+
+
+  <p align="center">
+    An optimized chr/pos/feature GTF/GFF sorter using a lexicographically-based index ordering algorithm written in Rust.
+  </p>
+
+</p>
+
 
 <p align="center">
     <img width=700 align="center" src="./supp/overview.png">
 </p>
 
 While current tools (most of them GFF3-focused) have been recommended for sorting GTF files, none are directed towards chr/pos/feature ordering. This approach ensures custom sorting directionality, which is useful for reducing computation times in tools that work with sorted GTF files. Furthermore, it provides a friendly and organized visualization of gene structures (gene -> transcript -> CDS/exon -> start/stop -> UTR/Sel), allowing users to search for features more efficiently.
-
 
 >[!NOTE]
 > 
@@ -23,6 +40,7 @@ While current tools (most of them GFF3-focused) have been recommended for sortin
 > Gonzales-Irribarren A and Fu. A. gtfsort: a tool to efficiently sort GTF files. bioRxiv 2023.10.21.563454; doi: https://doi.org/10.1101/2023.10.21.563454
 
 ## Usage
+### Binary
 ``` rust
 Usage: gtfsort -i <GTF> -o <OUTPUT> [-t <THREADS>]
 
@@ -36,13 +54,37 @@ Options:
     --version: print version
 ```
 
-> What's new on v.0.2.3
->
-> - **gtfsort now supports GFF sorting!**
-> - Now gtfsort is bit more faster (~0.2s); 1.9GB (*Cyprinus carpio carpio*) in 6.7s
-> - Part of the code has been reorganized and improved.
-> - A nf-module and a galaxy tool are coming! (these are being cooked)
+### Library
+``` rust
+use gtfsort::sort_annotations;
+use num_cpus;
 
+fn main() {
+    let input = PathBuf::new("/path/to/unsorted.gtf");
+    let output = PathBuf::new("/path/to/sorted.gtf");
+
+    let gtfsort_job_info = sort_annotations(
+            &input, 
+            &output,
+            num_cpus::get()
+            );
+}
+```
+### Python
+build the port to install it as a pkg:
+```
+git clone https://github.com/alejandrogzi/gtfsort.git && cd gtfsort/py-gtfsort
+hatch shell
+maturin develop --release
+```
+use it:
+``` python3
+from gtfsortpy import sort
+
+input = "/path/to/unsorted.gtf"
+output = "/path/to/sorted.gtf"
+gtfsort_job_info = sort(input, output)
+```
 
 #### crate: [https://crates.io/crates/gtfsort](https://crates.io/crates/gtfsort)
 
@@ -125,13 +167,11 @@ to use gtfsort through Conda just:
 
 ## Benchmark
 
-> Note that this benchmark is outdated, the current implementation (v.0.2.1) is x2 faster than the previous one (v.0.1.1). Now, gtfsort can sort the complete *Homo sapiens* GENCODE 44 GTF (1.5GB) in **6.2 seconds**. It also can sort the complete *Cyprinus carpio carpio* GTF (1.9GB) in **6.7 seconds** compared to the previous implementation that took **~14-15 seconds**.
+To assess the efficiency and results of gtfsort, two main benchmarks were conducted. First, I ran gtfsort over the whole Ensembl Animalia GTF3 dataset (110 release; 306 species) [2]. Here, gtfsort demonstrated both of their main attributes: speed and efficiency. **This tool is able to sort a 1.9 GB GTF file (*Cyprinus carpio carpio*) in 3 seconds with high accuracy using less than 1 GB of RAM**. Species of common interest are highlighted. 
 
-To assess the efficiency and results of gtfsort, two main benchmarks were conducted. First, I ran gtfsort over the whole Ensembl Animalia GTF3 dataset (110 release; 306 species) [2]. Here, gtfsort demonstrated both of their main attributes: speed and efficiency. This tool is able to sort a 1.9 GB GTF file (*Cyprinus carpio carpio*) in 12 seconds with high accuracy using less than 2.5 GB of RAM. Species of common interest are highlighted. 
+Secondly, I conducted a comparative analysis of gtfsort in relation to several existing software tools: GNU v.8.25 (both in single and multi-core configurations), AGAT (utilizing the --gff flag for both complete and partial parsing phases) [3], gff3sort (with specific options, including --precise and --chr_order natural) [4], and rsort (an unpublished multi-core Rust implementation with nested data structures). This benchmark included different biological domains, spanning bacteria, fungi, insects, mammals, and more. To ensure a robust assessment, I employed nine common reference species: *Homo sapiens*, *Mus musculus*, *Canis lupus familiaris*, *Gallus gallus*, *Danio rerio*, *Salmo salar*, *Crocodylus porosus*, *Drosophila melanogaster* and *Saccharomyces cerevisiae*. 
 
-Secondly, I conducted a comparative analysis of the gtfsort utility in relation to several existing software tools: GNU v.8.25 (both in single and multi-core configurations), AGAT (utilizing the --gff flag for both complete and partial parsing phases) [3], gff3sort (with specific options, including --precise and --chr_order natural) [4], and rsort (an unpublished multi-core Rust implementation with nested data structures). This comprehensive evaluation encompassed a diverse array of biological domains, spanning bacteria, fungi, insects, mammals, and more. To ensure a robust assessment, I employed nine common species: *Homo sapiens*, *Mus musculus*, *Canis lupus familiaris*, *Gallus gallus*, *Danio rerio*, *Salmo salar*, *Crocodylus porosus*, *Drosophila melanogaster* and *Saccharomyces cerevisiae*. 
-
-In this comparative analysis, gtfsort demonstrated remarkable efficiency, showcasing the second shortest computation time, second only to the GNU software (in both single and multi-core modes). It is worth noting, however, that GNU software fails to consistently maintain a stable chromosome/position/feature order and encounters difficulties when sorting commented lines (e.g., lines commencing with "#" at the beginning of the file). The remaining tools exhibited substantially longer processing times, with some employing parallel processing approaches (for instance, rsort, which utilized 16 cores).
+In this comparative analysis, gtfsort demonstrated remarkable efficiency, producing the shortest computation time along with the GNU software (in both single and multi-core modes). It is worth noting, however, that GNU software fails to consistently maintain a stable chromosome/position/feature order and encounters difficulties when sorting commented lines (e.g., lines commencing with "#" at the beginning of the file). The remaining tools exhibited substantially longer processing times, with some employing parallel processing approaches (like rsort, which utilized 16 cores).
 
 Furthermore, it is noteworthy that the memory allocation required for sorting files remained conservative in three of the tools evaluated: GNU (both single and multi-core), gff3sort, and gtfsort. The memory utilization for the largest file did not exceed 2.3 Gbs, even when handling substantial datasets (up to 1.6 Gbs in size).
 
@@ -141,7 +181,7 @@ Furthermore, it is noteworthy that the memory allocation required for sorting fi
 
 From the suite of tools employed in the preceding step, only three assert to incorporate a feature sorting step [5]: gff3sort, AGAT, and gtfsort. Gff3sort, a Perl-based program tailored for sorting GFF3/GTF files, is adept at generating results compatible with tabix tools [4]. It employs a topological algorithm to sequence features after an initial two-block sorting phase (first by chromosome, then by position). AGAT, an analysis toolkit also scripted in Perl, features a GFF3/GTF sorting tool within the `agat_convert_sp_gxf2gxf.pl` script [3], likewise employing a topological sorting approach.
 
-To assess the performance of these three tools, we subjected them to the GRCh38 *Homo sapiens* GTF file from the latest Ensembl release (110 release). Among the software tested, gtfsort emerged as the fastest, with a processing time of 12.0220 seconds, followed by gff3sort at 16.3970 seconds, and AGAT, which required approximately 900 seconds to complete the sorting operation. The notorious difference with the extensive computation time of AGAT is due to the fact that `agat_convert_sp_gxf2gxf.pl` does not only sort a GTF file but inspects some controversial lines and fixes/adds corrected/missing lines.
+To assess the performance of these three tools, we subjected them to the GRCh38 *Homo sapiens* GTF file from the latest Ensembl release (110 release). Among the software tested, gtfsort emerged as the fastest, with a processing time of **1.71 seconds**, followed by gff3sort at 16.3970 seconds, and AGAT, which required approximately 900 seconds to complete the sorting operation. The notorious difference with the extensive computation time of AGAT is due to the fact that `agat_convert_sp_gxf2gxf.pl` does not only sort a GTF file but inspects some controversial lines and fixes/adds corrected/missing lines.
 
 Although computation time is an important feature, the actual sorting output would be the key variable to compare. I choose a random gene (including all its transcripts/features) and tested whether the output ordering demonstrated a coherent and accurate layout.
 
@@ -152,15 +192,11 @@ Although computation time is an important feature, the actual sorting output wou
     <img align=center height=750 src="./supp/order.png">
 </p>
 
-- All the values presented herein represent the average of five consecutive iterations for each species, encompassing both time and memory usage.
+- All the values presented herein represent the average of ten consecutive iterations for each species, encompassing both time and memory usage.
 
 - In light of the notably extended computation times associated with AGAT-complete and AGAT-parse, we have expressed the time values for these tools in their decimal form (divided by 10) for enhanced clarity during visualization.
 
 - All benchmark assessments were conducted on an AMD Ryzen 7 5700X with 128 GB of RAM.
-
-## Limitations
-
-At the time gtfsort is being publicly available, only accepts GTF2.5 and GTF3 formats. Would be interesting to allow users to specify their custom order in an argument (e.g., --parent gene --middle mRNA --child exon,TSS,intron). 
 
 ## References
 1. https://agat.readthedocs.io/en/latest/gxf.html
