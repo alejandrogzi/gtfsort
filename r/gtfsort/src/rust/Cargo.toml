@@ -1,0 +1,19 @@
+[package]
+name = 'r-gtfsort'
+version = '0.1.0'
+authors = ["alejandrogzi <alejandrxgzi@gmail.com>", "eternal-flame-AD <yume@yumechi.jp>"]
+edition = '2021'
+license = "MIT"
+description = "R wrapper package for an optimized chr/pos/feature GTF/GFF sorter using a lexicographic-based index ordering algorithm written in Rust."
+homepage = "https://github.com/alejandrogzi/gtfsort"
+repository = "https://github.com/alejandrogzi/gtfsort"
+keywords = ["sort", "gtf", "gff", "gtfsort", "extendr", "r"]
+categories = ["command-line-utilities", "science"]
+
+[lib]
+crate-type = [ 'staticlib' ]
+name = 'gtfsort'
+
+[dependencies]
+extendr-api = '*'
+gtfsort = { path = 'gtfsort' }
