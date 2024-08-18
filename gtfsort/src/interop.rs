@@ -266,10 +266,12 @@ pub mod c_ffi {
                 crate::sort_annotations_string::<b'=', _>(input, &mut output, threads)
             }
             _ => {
-                unsafe {
-                    *result_ptr = SortAnnotationsRet::Err(Box::into_raw(Box::new(
-                        GtfSortError::InvalidParameter("invalid parse mode").into(),
-                    )));
+                if !result_ptr.is_null() {
+                    unsafe {
+                        *result_ptr = SortAnnotationsRet::Err(Box::into_raw(Box::new(
+                            GtfSortError::InvalidParameter("invalid parse mode").into(),
+                        )));
+                    }
                 }
                 return false;
             }
