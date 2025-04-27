@@ -74,7 +74,14 @@ impl<'a> Layers<'a> {
 
         for i in self.layer.iter() {
             total += i.2.len() + 1;
-            let transcripts = self.mapper.get(&i.1).unwrap();
+
+            let transcripts = if let Some(transcripts) = self.mapper.get(&i.1) {
+                transcripts
+            } else {
+                // log::warn!("Transcript not found in mapper for gene {} -> {}", i.1, i.2);
+                &vec![]
+            };
+
             for j in transcripts.iter() {
                 total += self.helper.get(j).unwrap().len() + 1;
                 let exons = self.inner.get(j).unwrap();
@@ -243,7 +250,14 @@ pub fn write_obj_mmaped<'a, P: AsRef<Path> + Debug>(
             for i in chr.layer.iter() {
                 writeln!(output, "{}", i.2)?;
 
-                let transcripts = chr.mapper.get(&i.1).unwrap();
+                // INFO: catching potential error expansion from mapper.get(&i.1)
+                // INFO: that may occur in gene lines without transcript_id
+                let transcripts = if let Some(transcripts) = chr.mapper.get(&i.1) {
+                    transcripts
+                } else {
+                    &vec![]
+                };
+
                 for j in transcripts.iter() {
                     writeln!(output, "{}", chr.helper.get(j).unwrap())?;
                     let exons = chr.inner.get(j).unwrap();
