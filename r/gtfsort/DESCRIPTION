@@ -1,0 +1,17 @@
+Package: gtfsort
+Title: An Optimized Lexicographiclexicographic Chr/Pos/Feature GTF/GFF Sorter.
+Version: 0.0.0.9000
+Authors@R: 
+    c(person("Alejandro", "Gonzales-Irribarren", , "alejandrxgzi@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-7010-8146")),
+      person("Anne", "Fu", , "anne.fu@utdallas.edu", role = "aut",
+           comment = c(ORCID = "0000-0002-9025-6071")))
+Description: While current tools (most of them GFF3-focused) have been recommended for sorting GTF files, none are directed towards chr/pos/feature ordering. This approach ensures custom sorting directionality, which is useful for reducing computation times in tools that work with sorted GTF files. Furthermore, it provides a friendly and organized visualization of gene structures (gene -> transcript -> CDS/exon -> start/stop -> UTR/Sel), allowing users to search for features more efficiently.
+License: use_mit_license()
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Config/rextendr/version: 0.3.1
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

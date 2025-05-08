@@ -1,0 +1,2 @@
+^src/\.cargo$
+^src/rust/gtfsort/target/
