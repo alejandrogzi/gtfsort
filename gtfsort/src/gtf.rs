@@ -3,7 +3,7 @@ use std::borrow::Cow;
 
 pub use attr::*;
 
-#[derive(Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Copy)]
 pub struct Record<'a> {
     pub chrom: &'a str,
     pub feat: &'a str,
@@ -16,6 +16,7 @@ pub struct Record<'a> {
 }
 
 impl<'a> Record<'a> {
+    /// Parses a single tab-delimited GTF/GFF line into a borrowed record view.
     #[inline]
     pub fn parse<const SEP: u8>(line: &'a str) -> Result<Self, Cow<'static, str>> {
         if line.is_empty() {
@@ -49,11 +50,13 @@ impl<'a> Record<'a> {
         })
     }
 
+    /// Returns the outer sorting key for gene feature lines.
     #[inline(always)]
     pub fn outer_layer(&self) -> (u32, &'a str, &'a str) {
         (self.start, self.gene_id, self.line)
     }
 
+    /// Returns the legacy exon/codon ordering key for transcript child features.
     #[inline(always)]
     pub fn inner_layer(&self) -> (&'a str, char) {
         (
@@ -66,6 +69,24 @@ impl<'a> Record<'a> {
                 _ => 'e',
             },
         )
+    }
+
+    /// Returns true when the record represents a gene feature row.
+    #[inline(always)]
+    pub fn is_gene(&self) -> bool {
+        self.feat == "gene"
+    }
+
+    /// Returns true when the record represents a transcript feature row.
+    #[inline(always)]
+    pub fn is_transcript(&self) -> bool {
+        self.feat == "transcript"
+    }
+
+    /// Returns true when the record belongs to a transcript block.
+    #[inline(always)]
+    pub fn has_transcript(&self) -> bool {
+        self.transcript_id != "0"
     }
 }
 

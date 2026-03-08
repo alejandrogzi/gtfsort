@@ -31,7 +31,7 @@ use gtfsort::*;
 #[derive(Parser, Debug)]
 #[clap(
     name = "gtfsort",
-    version = "0.2.3",
+    version = env!("CARGO_PKG_VERSION"),
     author = "alejandrogzi <alejandrxgzi@gmail.com>, eternal-flame-AD <yume@yumechi.jp>",
     about = "An optimized chr/pos/feature GTF2.5-3 sorter using a lexicographic-based index ordering algorithm written in Rust."
 )]
@@ -76,10 +76,10 @@ impl Args {
         if !self.input.exists() {
             let err = format!("file {:?} does not exist", self.input);
             Err(GtfSortError::InvalidInput(err))
-        } else if !self.input.extension().unwrap().eq("gff")
-            & !self.input.extension().unwrap().eq("gtf")
-            & !self.input.extension().unwrap().eq("gff3")
-        {
+        } else if !matches!(
+            annotation_extension(&self.input),
+            Some("gff" | "gtf" | "gff3")
+        ) {
             let err = format!(
                 "file {:?} is not a GTF or GFF3 file, please specify the correct format",
                 self.input
@@ -95,10 +95,10 @@ impl Args {
 
     /// Checks the output file for validity. If the file is not a BED file, an GtfSortError is returned.
     fn check_output(&self) -> Result<(), GtfSortError> {
-        if !self.output.extension().unwrap().eq("gtf")
-            & !self.output.extension().unwrap().eq("gff3")
-            & !self.output.extension().unwrap().eq("gff")
-        {
+        if !matches!(
+            annotation_extension(&self.output),
+            Some("gtf" | "gff3" | "gff")
+        ) {
             let err = format!(
                 "file {:?} is not a GTF/GFF file, please specify the correct output format",
                 self.output
