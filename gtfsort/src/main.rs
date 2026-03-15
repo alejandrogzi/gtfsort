@@ -84,10 +84,10 @@ impl Args {
                 "file {:?} is not a GTF or GFF3 file, please specify the correct format",
                 self.input
             );
-            return Err(GtfSortError::InvalidInput(err));
+            Err(GtfSortError::InvalidInput(err))
         } else if std::fs::metadata(&self.input).unwrap().len() == 0 {
             let err = format!("file {:?} is empty", self.input);
-            return Err(GtfSortError::InvalidInput(err));
+            Err(GtfSortError::InvalidInput(err))
         } else {
             Ok(())
         }

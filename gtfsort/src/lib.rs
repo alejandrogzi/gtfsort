@@ -15,7 +15,7 @@ pub mod test_utils;
 #[cfg(feature = "testing")]
 pub use test_utils::*;
 
-use std::{io, path::PathBuf};
+use std::{io, io::Read, path::Path};
 use thiserror::Error;
 
 use flate2::read::GzDecoder;
@@ -23,7 +23,6 @@ use flate2::read::GzDecoder;
 use mmap::Madvice;
 #[cfg(feature = "mmap")]
 use std::{borrow::Cow, fs::File};
-use std::{io::Read, path::Path};
 
 #[allow(unused_imports)]
 use colored::Colorize;
@@ -149,8 +148,8 @@ fn output_plan<'a>(
 }
 
 pub fn sort_annotations<'a>(
-    input: &'a PathBuf,
-    output: &'a PathBuf,
+    input: &'a Path,
+    output: &'a Path,
     threads: usize,
 ) -> Result<SortAnnotationsJobResult<'a>, GtfSortError> {
     assert!(threads > 0, "Invalid number of threads");
@@ -349,6 +348,7 @@ mod tests {
     use flate2::{read::GzDecoder, write::GzEncoder, Compression};
     use std::fs;
     use std::io::Write;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn sort_string<const SEP: u8>(input: &str) -> Result<String, GtfSortError> {

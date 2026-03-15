@@ -72,6 +72,7 @@ struct GeneAccumulator<'a> {
 #[derive(Debug)]
 pub struct TranscriptBlock<'a> {
     transcript_id: &'a str,
+    first_seen: usize,
     start: u32,
     transcript_lines: Vec<Record<'a>>,
     features: Vec<Record<'a>>,
@@ -80,6 +81,7 @@ pub struct TranscriptBlock<'a> {
 #[derive(Debug)]
 pub struct GeneBlock<'a> {
     gene_id: &'a str,
+    first_seen: usize,
     start: u32,
     gene_lines: Vec<Record<'a>>,
     gene_level_features: Vec<Record<'a>>,
@@ -176,6 +178,14 @@ impl<'a> GeneBlock<'a> {
 
         Self {
             gene_id,
+            first_seen: acc
+                .gene_lines
+                .iter()
+                .chain(acc.gene_level_features.iter())
+                .map(|record| record.line_no)
+                .chain(transcripts.iter().map(|transcript| transcript.first_seen))
+                .min()
+                .unwrap_or(usize::MAX),
             start,
             gene_lines: acc.gene_lines,
             gene_level_features: acc.gene_level_features,
@@ -220,6 +230,13 @@ impl<'a> TranscriptBlock<'a> {
 
         Self {
             transcript_id,
+            first_seen: acc
+                .transcript_lines
+                .iter()
+                .chain(acc.features.iter())
+                .map(|record| record.line_no)
+                .min()
+                .unwrap_or(usize::MAX),
             start,
             transcript_lines: acc.transcript_lines,
             features: acc.features,
@@ -263,12 +280,13 @@ pub fn is_gzip_path(path: &Path) -> bool {
 fn compare_gene_blocks(a: &GeneBlock<'_>, b: &GeneBlock<'_>) -> Ordering {
     a.start
         .cmp(&b.start)
+        .then(a.first_seen.cmp(&b.first_seen))
         .then_with(|| natord::compare(a.gene_id, b.gene_id))
 }
 
 fn compare_transcript_blocks(a: &TranscriptBlock<'_>, b: &TranscriptBlock<'_>) -> Ordering {
-    a.start
-        .cmp(&b.start)
+    a.first_seen
+        .cmp(&b.first_seen)
         .then_with(|| natord::compare(a.transcript_id, b.transcript_id))
 }
 
@@ -276,24 +294,25 @@ fn compare_position_then_line(a: &Record<'_>, b: &Record<'_>) -> Ordering {
     a.start
         .cmp(&b.start)
         .then(a.end.cmp(&b.end))
-        .then_with(|| natord::compare(a.line, b.line))
+        .then(a.line_no.cmp(&b.line_no))
 }
 
 fn compare_position_then_feature_then_line(a: &Record<'_>, b: &Record<'_>) -> Ordering {
-    compare_position_then_line(a, b).then_with(|| natord::compare(a.feat, b.feat))
+    a.start
+        .cmp(&b.start)
+        .then(a.end.cmp(&b.end))
+        .then_with(|| natord::compare(a.feat, b.feat))
+        .then(a.line_no.cmp(&b.line_no))
 }
 
 fn compare_transcript_features(a: &Record<'_>, b: &Record<'_>) -> Ordering {
     match (exon_group_rank(a.feat), exon_group_rank(b.feat)) {
         (Some(a_rank), Some(b_rank)) => natord::compare(a.exon_number, b.exon_number)
             .then(a_rank.cmp(&b_rank))
-            .then(compare_position_then_line(a, b)),
+            .then(a.line_no.cmp(&b.line_no)),
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,
-        (None, None) => feature_rank(a.feat)
-            .cmp(&feature_rank(b.feat))
-            .then_with(|| natord::compare(a.feat, b.feat))
-            .then(compare_position_then_line(a, b)),
+        (None, None) => natord::compare(a.feat, b.feat).then(a.line_no.cmp(&b.line_no)),
     }
 }
 
@@ -304,16 +323,6 @@ fn exon_group_rank(feat: &str) -> Option<u8> {
         "start_codon" => Some(2),
         "stop_codon" => Some(3),
         _ => None,
-    }
-}
-
-fn feature_rank(feat: &str) -> u8 {
-    match feat {
-        "five_prime_utr" => 0,
-        "three_prime_utr" => 1,
-        "UTR" => 2,
-        "Selenocysteine" => 3,
-        _ => 4,
     }
 }
 
@@ -507,41 +516,31 @@ impl<'a> ParseAccumulator<'a> {
             self.error_samples.push(error);
         }
     }
-
-    fn merge(mut self, other: Self) -> Self {
-        for (chrom, records) in other.records {
-            self.records.entry(chrom).or_default().extend(records);
-        }
-
-        self.error_count += other.error_count;
-        for sample in other.error_samples {
-            if self.error_samples.len() == Self::MAX_ERROR_SAMPLES {
-                break;
-            }
-            self.error_samples.push(sample);
-        }
-
-        self
-    }
 }
 
 /// Parses all non-comment annotation lines and surfaces parse failures explicitly.
 pub fn parallel_parse<const SEP: u8>(s: &str) -> Result<ChromRecord<'_>, String> {
-    let acc = s
-        .par_lines()
-        .filter(|line| {
+    let lines = s
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| {
             let trimmed = line.trim();
             !trimmed.is_empty() && !trimmed.starts_with('#')
         })
-        .fold(ParseAccumulator::default, |mut acc, line| {
-            match Record::parse::<SEP>(line) {
-                Ok(record) => acc.push_record(record),
-                Err(error) => acc.push_error(error.into_owned()),
-            }
+        .collect::<Vec<_>>();
 
-            acc
-        })
-        .reduce(ParseAccumulator::default, ParseAccumulator::merge);
+    let parsed = lines
+        .into_par_iter()
+        .map(|(line_no, line)| Record::parse::<SEP>(line_no, line))
+        .collect::<Vec<_>>();
+
+    let mut acc = ParseAccumulator::default();
+    for result in parsed {
+        match result {
+            Ok(record) => acc.push_record(record),
+            Err(error) => acc.push_error(error.into_owned()),
+        }
+    }
 
     if acc.error_count > 0 {
         Err(format!(
