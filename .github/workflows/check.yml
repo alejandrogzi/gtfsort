@@ -176,7 +176,7 @@ jobs:
           
           uv venv
           source .venv/bin/activate
-          uv pip install maturin pytest
+          uv pip install maturin pytest pandas
           maturin develop --release --manifest-path Cargo.toml --features test
           python -m pytest --verbose
 
