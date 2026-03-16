@@ -5,7 +5,7 @@ use std::{
     io::{BufRead, BufReader, Read},
     ops::Deref,
     path::{Path, PathBuf},
-    sync::Once,
+    sync::{Once, OnceLock},
 };
 
 use flate2::read::GzDecoder;
@@ -134,8 +134,7 @@ impl<R: Read> Read for OnlyChromosomes<R> {
 pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_FILENAME: &str =
     "gencode.vM35.chr_patch_hapl_scaff.basic.annotation.gff3";
 pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_URL: &str  = "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M35/gencode.vM35.chr_patch_hapl_scaff.basic.annotation.gff3.gz";
-static TEST_FILE_GFF3_GENCODE_MOUSE_M35_CELL: Once = Once::new();
-static mut TEST_FILE_GFF3_GENCODE_MOUSE_M35: Option<TestFile> = None;
+static TEST_FILE_GFF3_GENCODE_MOUSE_M35: OnceLock<TestFile> = OnceLock::new();
 pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_TRANSFORMER: &dyn Fn(Box<dyn Read>) -> Box<dyn Read> =
     &|r| {
         Box::new(OnlyChromosomes::new(
@@ -154,16 +153,14 @@ pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_TRANSFORMER: &dyn Fn(Box<dyn Read>) -
     };
 pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_EXPECT_OUTPUT_CKSUM: [&str; 1] = ["f6f3eb1d"];
 pub fn get_test_file_gff3_gencode_mouse_m35() -> &'static TestFile {
-    TEST_FILE_GFF3_GENCODE_MOUSE_M35_CELL.call_once(|| unsafe {
-        TEST_FILE_GFF3_GENCODE_MOUSE_M35 = Some(TestFile::from_url(
+    TEST_FILE_GFF3_GENCODE_MOUSE_M35.get_or_init(|| {
+        TestFile::from_url(
             TEST_FILE_GFF3_GENCODE_MOUSE_M35_FILENAME,
             TEST_FILE_GFF3_GENCODE_MOUSE_M35_URL,
             &TEST_FILE_GFF3_GENCODE_MOUSE_M35_TRANSFORMER,
             &TEST_FILE_GFF3_GENCODE_MOUSE_M35_EXPECT_OUTPUT_CKSUM,
-        ));
-    });
-
-    unsafe { TEST_FILE_GFF3_GENCODE_MOUSE_M35.as_ref().unwrap() }
+        )
+    })
 }
 
 pub fn crc32_hex<R: Read>(mut r: R) -> String {
@@ -208,18 +205,28 @@ impl TestFile {
         let name = tmpdir.join(cache_name).to_string_lossy().to_string();
         let path = Path::new(&name);
 
-        if path.exists() {
+        if path
+            .metadata()
+            .map(|metadata| metadata.is_file() && metadata.len() > 0)
+            .unwrap_or(false)
+        {
             return Self {
                 name: path.to_str().unwrap().to_string(),
                 expect_output_cksum: expect_output_cksum.to_vec(),
             };
         }
 
-        let mut file = std::fs::File::create(path).unwrap();
+        if path.exists() {
+            std::fs::remove_file(path).unwrap();
+        }
+
+        let tmp_path = PathBuf::from(format!("{name}.download"));
+        let mut file = std::fs::File::create(&tmp_path).unwrap();
 
         let resp = reqwest::blocking::get(url).unwrap();
 
         std::io::copy(&mut pipe(Box::new(resp)), &mut file).unwrap();
+        std::fs::rename(&tmp_path, path).unwrap();
 
         Self::new_fs(name.as_str(), expect_output_cksum)
     }
