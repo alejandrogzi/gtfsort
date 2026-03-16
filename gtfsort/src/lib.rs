@@ -209,7 +209,7 @@ pub fn sort_annotations<'a>(
 
                 #[cfg(windows)]
                 let contents_map = unsafe {
-                    mmap::MemoryMap::<u8>::from_handle(&f, f_size as usize)
+                    mmap::MemoryMap::<u8>::from_handle(f, f_size as usize)
                         .map_err(|e| GtfSortError::IoError("mapping input file to memory", e))?
                 };
 
