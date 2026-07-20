@@ -24,6 +24,7 @@ struct SortAnnotationRetWrapper
 {
     SortAnnotationsRet *ret;
 
+    /// Allocates the result object used by the C FFI tests.
     SortAnnotationRetWrapper()
     {
         PANIC_IF(
@@ -31,12 +32,14 @@ struct SortAnnotationRetWrapper
             "Failed to allocate SortAnnotationsRet");
     }
 
+    /// Releases the result object and its nested allocations.
     ~SortAnnotationRetWrapper()
     {
         gtfsort_free_sort_annotations_ret(ret);
     }
 };
 
+/// Renders an FFI result for diagnostic output.
 std::ostream &operator<<(std::ostream &os, const SortAnnotationRetWrapper &ret)
 {
     if (ret.ret->tag == SortAnnotationsRet::Tag::Ok)
@@ -57,6 +60,7 @@ std::ostream &operator<<(std::ostream &os, const SortAnnotationRetWrapper &ret)
     return os;
 }
 
+/// Returns whether two files contain identical bytes.
 bool cmp_files(const char *file1, const char *file2)
 {
     std::ifstream f1(file1);
@@ -75,6 +79,7 @@ bool cmp_files(const char *file1, const char *file2)
                       std::istreambuf_iterator<char>(f2.rdbuf()));
 }
 
+/// Exercises file-based and callback-based sorting through the C API.
 int main(int argc, char **argv)
 {
     if (argc < 4)

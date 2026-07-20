@@ -52,10 +52,12 @@ impl<'a, T> MemoryMap<'a, T> {
         }
     }
 
+    /// Returns the mapped region size in bytes.
     pub fn size_bytes(&self) -> usize {
         self.size
     }
 
+    /// Borrows the mapped region as an immutable slice.
     pub fn as_slice(&self) -> &[T] {
         if self.size == 0 {
             return &[];
@@ -64,6 +66,7 @@ impl<'a, T> MemoryMap<'a, T> {
     }
 
     #[cfg(unix)]
+    /// Applies one or more access-pattern hints to the mapped region on Unix.
     pub fn madvise(&self, advice: &[Madvice]) -> Result<(), std::io::Error> {
         if self.ptr.is_null() {
             return Ok(());
@@ -93,6 +96,7 @@ impl<'a, T> MemoryMap<'a, T> {
     }
 
     #[cfg(not(unix))]
+    /// Accepts access-pattern hints as a no-op on non-Unix platforms.
     pub fn madvise(&self, _advice: &[Madvice]) -> Result<(), std::io::Error> {
         Ok(())
     }
@@ -208,6 +212,7 @@ impl<'a, T> MemoryMap<'a, T> {
         }
     }
 
+    /// Explicitly unmaps the region and reports cleanup errors.
     pub fn close(mut self) -> Result<(), std::io::Error> {
         if let Some(cleanup) = self.cleanup.take() {
             cleanup(&mut self)?;
@@ -217,6 +222,7 @@ impl<'a, T> MemoryMap<'a, T> {
 }
 
 impl<T> Drop for MemoryMap<'_, T> {
+    /// Unmaps the region when the mapping goes out of scope.
     fn drop(&mut self) {
         if let Some(cleanup) = self.cleanup.take() {
             cleanup(self).expect("failed to unmap memory, and error was ignored");
@@ -245,6 +251,7 @@ impl<'a, T> MemoryMapMut<'a, T> {
         }
     }
 
+    /// Borrows the mapped region as an immutable slice.
     pub fn as_slice(&self) -> &[T] {
         if self.size == 0 {
             return &[];
@@ -252,6 +259,7 @@ impl<'a, T> MemoryMapMut<'a, T> {
         unsafe { std::slice::from_raw_parts(self.ptr, self.size / std::mem::size_of::<T>()) }
     }
 
+    /// Borrows the mapped region as a mutable slice.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         if self.size == 0 {
             return &mut [];
@@ -260,6 +268,7 @@ impl<'a, T> MemoryMapMut<'a, T> {
     }
 
     #[cfg(unix)]
+    /// Applies one or more access-pattern hints to the mutable mapping on Unix.
     pub fn madvise(&self, advice: &[Madvice]) -> Result<(), std::io::Error> {
         if self.ptr.is_null() {
             return Ok(());
@@ -288,6 +297,7 @@ impl<'a, T> MemoryMapMut<'a, T> {
     }
 
     #[cfg(not(unix))]
+    /// Accepts access-pattern hints as a no-op on non-Unix platforms.
     pub fn madvise(&self, _advice: &[Madvice]) -> Result<(), std::io::Error> {
         Ok(())
     }
@@ -402,6 +412,7 @@ impl<'a, T> MemoryMapMut<'a, T> {
         }
     }
 
+    /// Explicitly unmaps the mutable region and reports cleanup errors.
     pub fn close(mut self) -> Result<(), std::io::Error> {
         if let Some(cleanup) = self.cleanup.take() {
             cleanup(&mut self)?;
@@ -411,6 +422,7 @@ impl<'a, T> MemoryMapMut<'a, T> {
 }
 
 impl<T> Drop for MemoryMapMut<'_, T> {
+    /// Unmaps the mutable region when the mapping goes out of scope.
     fn drop(&mut self) {
         if let Some(cleanup) = self.cleanup.take() {
             cleanup(self).expect("failed to unmap memory, and error was ignored");
@@ -425,6 +437,7 @@ mod tests {
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
+    /// Creates a uniquely named read-only mmap test fixture.
     fn tempfile_ro(data: &[u8]) -> (PathBuf, std::fs::File) {
         let path = std::env::temp_dir().join(format!(
             "gtfsort_mmap_test_{}",
@@ -450,6 +463,7 @@ mod tests {
         )
     }
 
+    /// Creates a uniquely named read-write mmap test fixture.
     fn tempfile_rw(data: &[u8]) -> (PathBuf, std::fs::File) {
         let path = std::env::temp_dir().join(format!(
             "gtfsort_mmap_test_{}",
@@ -472,6 +486,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies immutable file mapping and explicit cleanup.
     fn test_mmap() {
         let (path, file) = tempfile_ro(b"hello world");
 
@@ -490,6 +505,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies that mutable mappings persist changes to the file.
     fn test_mmap_mut() {
         let (path, file) = tempfile_rw(b"hello world");
 
@@ -512,6 +528,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies immutable mapping of an empty file.
     fn test_mmap_zero_size() {
         let (path, file) = tempfile_ro(b"");
 
@@ -530,6 +547,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies mutable mapping of an empty file.
     fn test_mmap_mut_zero_size() {
         let (path, file) = tempfile_rw(b"");
 
@@ -548,6 +566,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies that access-pattern advice can be applied.
     fn test_mmap_madvise() {
         let (path, file) = tempfile_ro(b"hello world");
 

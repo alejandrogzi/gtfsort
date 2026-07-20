@@ -2,6 +2,7 @@ use std::env;
 
 use cbindgen::Config;
 
+/// Generates the C and C++ headers from the Rust FFI declarations.
 fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 

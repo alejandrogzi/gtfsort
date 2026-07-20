@@ -3,8 +3,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::wrap_pyfunction;
 
-use num_cpus;
-
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -14,6 +12,7 @@ use gtfsort::{sort_annotations, sort_annotations_string};
 use gtfsort::test_utils::get_test_file_gff3_gencode_mouse_m35;
 
 #[pyfunction]
+/// Sorts an annotation file and returns a human-readable job summary.
 fn sort(py: Python, input: PyObject, output: PyObject, threads: Option<usize>) -> PyResult<String> {
     let input = PathBuf::from(input.extract::<String>(py)?);
     let output = PathBuf::from(output.extract::<String>(py)?);
@@ -35,7 +34,8 @@ fn sort(py: Python, input: PyObject, output: PyObject, threads: Option<usize>) -
 }
 
 #[pyfunction]
-fn sort_from_string<'a>(
+/// Sorts GTF text and passes the complete sorted bytes to a Python callback.
+fn sort_from_string(
     py: Python,
     input: &str,
     output_callback: PyObject,
@@ -69,6 +69,7 @@ fn sort_from_string<'a>(
 
 #[cfg(feature = "test")]
 #[pyfunction]
+/// Returns the path to the shared integration-test fixture.
 fn get_test_file() -> PyResult<PathBuf> {
     let test_file = get_test_file_gff3_gencode_mouse_m35();
     Ok(PathBuf::from(test_file.name.to_string()))
@@ -76,6 +77,7 @@ fn get_test_file() -> PyResult<PathBuf> {
 
 #[pymodule]
 #[pyo3(name = "gtfsortpy")]
+/// Registers the Python extension module and its exported functions.
 fn gtfsortpy(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sort, m)?)?;
     m.add_function(wrap_pyfunction!(sort_from_string, m)?)?;

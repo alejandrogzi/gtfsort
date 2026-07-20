@@ -27,6 +27,7 @@ pub struct ChunkWriter<'f, F: FnMut(&[u8]) -> io::Result<usize>> {
 }
 
 impl<'f, F: FnMut(&[u8]) -> io::Result<usize>> ChunkWriter<'f, F> {
+    /// Wraps a byte callback in an [`io::Write`] implementation.
     pub fn new(f: &'f mut F) -> Self {
         Self { f }
     }
@@ -36,15 +37,18 @@ impl<F> Write for ChunkWriter<'_, F>
 where
     F: FnMut(&[u8]) -> io::Result<usize>,
 {
+    /// Forwards a byte slice to the wrapped callback.
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         (self.f)(buf)
     }
 
+    /// Completes immediately because callback-backed output has no local buffer.
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 }
 
+/// Runs an operation, records its elapsed seconds, and emits a timing log entry.
 pub fn timed<T, F: FnOnce() -> T>(key: &str, output: Option<&mut f64>, f: F) -> T {
     let start = std::time::Instant::now();
     let res = f();
@@ -54,6 +58,36 @@ pub fn timed<T, F: FnOnce() -> T>(key: &str, output: Option<&mut f64>, f: F) -> 
     }
     log::info!("{}: {:.2}s", key, elapsed);
     res
+}
+
+/// Returns the leading blank and comment lines that form an annotation preamble.
+///
+/// Comments that appear after the first annotation record are intentionally not
+/// included because only the file-level metadata header belongs at the top of a
+/// sorted file.
+pub(crate) fn leading_metadata_lines(input: &str) -> Vec<&str> {
+    input
+        .lines()
+        .take_while(|line| {
+            let trimmed = line.trim();
+            trimmed.is_empty() || trimmed.starts_with('#')
+        })
+        .collect()
+}
+
+/// Counts the bytes needed to render metadata lines with trailing newlines.
+#[cfg(feature = "mmap")]
+fn metadata_size(metadata: &[&str]) -> usize {
+    metadata.iter().map(|line| line.len() + 1).sum()
+}
+
+/// Writes metadata lines in their original order.
+fn write_metadata<W: Write>(output: &mut W, metadata: &[&str]) -> Result<(), io::Error> {
+    for line in metadata {
+        writeln!(output, "{line}")?;
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Default)]
@@ -277,6 +311,7 @@ pub fn is_gzip_path(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("gz"))
 }
 
+/// Orders genes by genomic start, input order, and natural gene identifier.
 fn compare_gene_blocks(a: &GeneBlock<'_>, b: &GeneBlock<'_>) -> Ordering {
     a.start
         .cmp(&b.start)
@@ -284,12 +319,14 @@ fn compare_gene_blocks(a: &GeneBlock<'_>, b: &GeneBlock<'_>) -> Ordering {
         .then_with(|| natord::compare(a.gene_id, b.gene_id))
 }
 
+/// Orders transcripts deterministically by their first input occurrence and identifier.
 fn compare_transcript_blocks(a: &TranscriptBlock<'_>, b: &TranscriptBlock<'_>) -> Ordering {
     a.first_seen
         .cmp(&b.first_seen)
         .then_with(|| natord::compare(a.transcript_id, b.transcript_id))
 }
 
+/// Orders records by coordinates and uses input order as a stable tie-breaker.
 fn compare_position_then_line(a: &Record<'_>, b: &Record<'_>) -> Ordering {
     a.start
         .cmp(&b.start)
@@ -297,6 +334,7 @@ fn compare_position_then_line(a: &Record<'_>, b: &Record<'_>) -> Ordering {
         .then(a.line_no.cmp(&b.line_no))
 }
 
+/// Orders gene-level features by coordinates, feature name, and input order.
 fn compare_position_then_feature_then_line(a: &Record<'_>, b: &Record<'_>) -> Ordering {
     a.start
         .cmp(&b.start)
@@ -305,6 +343,7 @@ fn compare_position_then_feature_then_line(a: &Record<'_>, b: &Record<'_>) -> Or
         .then(a.line_no.cmp(&b.line_no))
 }
 
+/// Orders transcript children by exon grouping while retaining deterministic ties.
 fn compare_transcript_features(a: &Record<'_>, b: &Record<'_>) -> Ordering {
     match (exon_group_rank(a.feat), exon_group_rank(b.feat)) {
         (Some(a_rank), Some(b_rank)) => natord::compare(a.exon_number, b.exon_number)
@@ -316,6 +355,7 @@ fn compare_transcript_features(a: &Record<'_>, b: &Record<'_>) -> Ordering {
     }
 }
 
+/// Maps exon-related feature names to their output rank within an exon group.
 fn exon_group_rank(feat: &str) -> Option<u8> {
     match feat {
         "exon" => Some(0),
@@ -328,10 +368,23 @@ fn exon_group_rank(feat: &str) -> Option<u8> {
 
 #[cfg(not(feature = "mmap"))]
 #[inline(always)]
+/// Writes sorted chromosome blocks to a file, selecting gzip output by suffix.
 pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     file: P,
     obj: &DashMap<&'a str, Layers>,
     keys: Vec<(&'a str, usize)>,
+    job: &mut Option<&mut SortAnnotationsJobResult>,
+) -> Result<(), io::Error> {
+    write_obj_with_metadata(file, obj, keys, &[], job)
+}
+
+/// Writes sorted chromosome blocks and their leading metadata to a file.
+#[cfg(not(feature = "mmap"))]
+pub(crate) fn write_obj_with_metadata<'a, P: AsRef<Path> + Debug>(
+    file: P,
+    obj: &DashMap<&'a str, Layers>,
+    keys: Vec<(&'a str, usize)>,
+    metadata: &[&str],
     job: &mut Option<&mut SortAnnotationsJobResult>,
 ) -> Result<(), io::Error> {
     let path = file.as_ref();
@@ -339,19 +392,32 @@ pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     if is_gzip_path(path) {
         let f = open_output_file(path)?;
         let encoder = GzEncoder::new(f, Compression::default());
-        write_obj_sequential(encoder, obj, keys, job)
+        write_obj_sequential_with_metadata(encoder, obj, keys, metadata, job)
     } else {
         let f = open_output_file(path)?;
-        write_obj_sequential(f, obj, keys, job)
+        write_obj_sequential_with_metadata(f, obj, keys, metadata, job)
     }
 }
 
 #[cfg(feature = "mmap")]
 #[inline(always)]
+/// Writes sorted chromosome blocks to a file, preferring mmap for plain output.
 pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     file: P,
     obj: &DashMap<&'a str, Layers>,
     keys: Vec<(&'a str, usize)>,
+    job: &mut Option<&mut SortAnnotationsJobResult>,
+) -> Result<(), io::Error> {
+    write_obj_with_metadata(file, obj, keys, &[], job)
+}
+
+/// Writes sorted chromosome blocks and their leading metadata to a file.
+#[cfg(feature = "mmap")]
+pub(crate) fn write_obj_with_metadata<'a, P: AsRef<Path> + Debug>(
+    file: P,
+    obj: &DashMap<&'a str, Layers>,
+    keys: Vec<(&'a str, usize)>,
+    metadata: &[&str],
     job: &mut Option<&mut SortAnnotationsJobResult>,
 ) -> Result<(), io::Error> {
     let path = file.as_ref();
@@ -359,10 +425,10 @@ pub fn write_obj<'a, P: AsRef<Path> + Debug>(
     if is_gzip_path(path) {
         let f = open_output_file(path)?;
         let encoder = GzEncoder::new(f, Compression::default());
-        return write_obj_sequential(encoder, obj, keys, job);
+        return write_obj_sequential_with_metadata(encoder, obj, keys, metadata, job);
     }
 
-    write_obj_mmaped(path, obj, keys.clone(), job).or_else(move |e| {
+    write_obj_mmaped_with_metadata(path, obj, keys.clone(), metadata, job).or_else(move |e| {
         log::warn!(
             "{} {}",
             "Error in mmaped output, falling back to sequential:"
@@ -373,7 +439,7 @@ pub fn write_obj<'a, P: AsRef<Path> + Debug>(
 
         let f = open_output_file(path)?;
 
-        write_obj_sequential(f, obj, keys, job)
+        write_obj_sequential_with_metadata(f, obj, keys, metadata, job)
     })
 }
 
@@ -384,10 +450,22 @@ pub fn write_obj_sequential<'a, W: Write>(
     keys: Vec<(&'a str, usize)>,
     _job: &mut Option<&mut SortAnnotationsJobResult>,
 ) -> Result<(), io::Error> {
+    write_obj_sequential_with_metadata(file, obj, keys, &[], _job)
+}
+
+/// Writes metadata and chromosome blocks to a generic writer without mmap.
+pub(crate) fn write_obj_sequential_with_metadata<'a, W: Write>(
+    file: W,
+    obj: &DashMap<&'a str, Layers>,
+    keys: Vec<(&'a str, usize)>,
+    metadata: &[&str],
+    _job: &mut Option<&mut SortAnnotationsJobResult>,
+) -> Result<(), io::Error> {
     use std::io::BufWriter;
 
     let mut output = BufWriter::new(file);
 
+    write_metadata(&mut output, metadata)?;
     write_layers(&mut output, obj, &keys)?;
 
     output.flush()?;
@@ -396,10 +474,23 @@ pub fn write_obj_sequential<'a, W: Write>(
 }
 
 #[cfg(feature = "mmap")]
+/// Writes sorted chromosome blocks directly into a memory-mapped output file.
 pub fn write_obj_mmaped<'a, P: AsRef<Path> + Debug>(
     file: P,
     obj: &DashMap<&'a str, Layers>,
     keys: Vec<(&'a str, usize)>,
+    job: &mut Option<&mut SortAnnotationsJobResult>,
+) -> Result<(), io::Error> {
+    write_obj_mmaped_with_metadata(file, obj, keys, &[], job)
+}
+
+/// Writes metadata and sorted blocks directly into a memory-mapped output file.
+#[cfg(feature = "mmap")]
+fn write_obj_mmaped_with_metadata<'a, P: AsRef<Path> + Debug>(
+    file: P,
+    obj: &DashMap<&'a str, Layers>,
+    keys: Vec<(&'a str, usize)>,
+    metadata: &[&str],
     job: &mut Option<&mut SortAnnotationsJobResult>,
 ) -> Result<(), io::Error> {
     use std::{fs::OpenOptions, io::Cursor};
@@ -413,7 +504,7 @@ pub fn write_obj_mmaped<'a, P: AsRef<Path> + Debug>(
         .truncate(true)
         .open(file)?;
 
-    let size = keys.iter().map(|(_, i)| *i as u64).sum();
+    let size = metadata_size(metadata) as u64 + keys.iter().map(|(_, i)| *i as u64).sum::<u64>();
 
     if size == 0 {
         return Ok(());
@@ -440,6 +531,11 @@ pub fn write_obj_mmaped<'a, P: AsRef<Path> + Debug>(
         "Successfully mapped output file, size: {} bytes",
         output.len()
     );
+
+    let (metadata_output, remaining_output) = output.split_at_mut(metadata_size(metadata));
+    let mut metadata_cursor = Cursor::new(metadata_output);
+    write_metadata(&mut metadata_cursor, metadata)?;
+    output = remaining_output;
 
     let mut output_slices = Vec::new();
     for (_, s) in keys.iter() {
@@ -476,6 +572,7 @@ pub fn write_obj_mmaped<'a, P: AsRef<Path> + Debug>(
     Ok(())
 }
 
+/// Creates or truncates an output file and logs creation failures.
 fn open_output_file(path: &Path) -> Result<File, io::Error> {
     File::create(path).map_err(|e| {
         log::error!("{} {}", "Error in output file:".bright_red().bold(), e);
@@ -483,6 +580,7 @@ fn open_output_file(path: &Path) -> Result<File, io::Error> {
     })
 }
 
+/// Writes chromosome layers to a stream in the supplied chromosome order.
 fn write_layers<'a, W: Write>(
     output: &mut W,
     obj: &DashMap<&'a str, Layers>,
@@ -506,10 +604,12 @@ struct ParseAccumulator<'a> {
 impl<'a> ParseAccumulator<'a> {
     const MAX_ERROR_SAMPLES: usize = 5;
 
+    /// Adds a parsed record to its chromosome bucket.
     fn push_record(&mut self, record: Record<'a>) {
         self.records.entry(record.chrom).or_default().push(record);
     }
 
+    /// Counts a parse error and retains a bounded diagnostic sample.
     fn push_error(&mut self, error: String) {
         self.error_count += 1;
         if self.error_samples.len() < Self::MAX_ERROR_SAMPLES {
@@ -554,6 +654,7 @@ pub fn parallel_parse<const SEP: u8>(s: &str) -> Result<ChromRecord<'_>, String>
 }
 
 #[cfg(not(windows))]
+/// Returns the process peak resident memory usage in mebibytes.
 pub fn max_mem_usage_mb() -> f64 {
     let rusage = unsafe {
         let mut rusage = std::mem::MaybeUninit::uninit();
@@ -572,6 +673,7 @@ pub fn max_mem_usage_mb() -> f64 {
 }
 
 #[cfg(windows)]
+/// Returns the process peak working-set size in mebibytes.
 pub fn max_mem_usage_mb() -> f64 {
     use windows::Win32::System::{
         ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
@@ -600,6 +702,7 @@ pub fn max_mem_usage_mb() -> f64 {
     }
 }
 
+/// Prints the command-line program banner and version.
 pub fn msg() {
     println!(
         "{}\n{}\n{}",
