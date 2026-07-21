@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5 - 2026-07-21
+
+- `c8ae850` BREAKING CHANGE: v0.2.5 -> preserve metadata lines + docs + changelog — alejandrogzi
+- `5e30cc7` BREAKING CHANGE: v0.2.5 -> container — alejandrogzi
+- `8ccdbe0` fix: update checksum for M35 — alejandrogzi
+
 ## 0.2.4 - 2026-03-16
 
 - `5feb5f6` Merge pull request #18 from alejandrogzi/v0.2.4 — Alejandro Gonzales-Irribarren
