@@ -45,6 +45,6 @@ class TestGtf(unittest.TestCase):
     def test_sorted_file_order(self):
         """Verify natural chromosome ordering in the sorted file."""
         rule = ['GL456221.1', 'chr1', 'chr2', 'chr3', 'chr5', 'chrM']
-        chrom_order = pd.read_csv(self.out, sep='\t', usecols=[0], header=None, comments='#')[0].unique().tolist()
+        chrom_order = pd.read_csv(self.out, sep='\t', usecols=[0], header=None, comment='#')[0].unique().tolist()
 
         self.assertEqual(chrom_order, rule)
