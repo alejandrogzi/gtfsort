@@ -1,3 +1,14 @@
-/target
-tests/
-
+.git
+.github
+.agents
+.codex
+**/target
+**/__pycache__
+assets
+py-gtfsort
+supp
+gtfsort/ci
+gtfsort/*.gtf
+gtfsort/*.gff
+gtfsort/*.gff3
+gtfsort/*.gz

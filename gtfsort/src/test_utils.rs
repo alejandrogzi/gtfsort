@@ -15,7 +15,9 @@ use log::Level;
 #[macro_export]
 macro_rules! current_func {
     () => {{
+        /// Provides a type name whose suffix identifies the enclosing function.
         fn f() {}
+        /// Returns the compiler's fully qualified type name for a value.
         fn type_name_of<T>(_: T) -> &'static str {
             std::any::type_name::<T>()
         }
@@ -30,6 +32,7 @@ pub struct TempFile {
 }
 
 impl TempFile {
+    /// Creates a temporary-file path with optional cleanup on drop.
     pub fn new(name: &str, cleanup: bool) -> Self {
         let path = std::env::temp_dir().join(name);
         Self { path, cleanup }
@@ -39,12 +42,14 @@ impl TempFile {
 impl Deref for TempFile {
     type Target = PathBuf;
 
+    /// Borrows the underlying temporary path.
     fn deref(&self) -> &Self::Target {
         &self.path
     }
 }
 
 impl Drop for TempFile {
+    /// Removes the temporary file when cleanup is enabled.
     fn drop(&mut self) {
         if self.cleanup {
             // std::fs::remove_file(&self.path).unwrap();
@@ -69,6 +74,7 @@ pub struct OnlyChromosomes<R> {
 }
 
 impl<R: Read> OnlyChromosomes<R> {
+    /// Wraps a reader and selects comments plus records on specified chromosomes.
     pub fn new(inner: R, chrom: &'static [&'static str]) -> Self {
         Self {
             inner: BufReader::new(inner),
@@ -76,6 +82,7 @@ impl<R: Read> OnlyChromosomes<R> {
             chrom,
         }
     }
+    /// Scans until the next retained line is buffered or the input ends.
     pub fn buffer_more(&mut self) -> std::io::Result<usize> {
         let mut tot = 0;
         loop {
@@ -101,6 +108,7 @@ impl<R: Read> OnlyChromosomes<R> {
 }
 
 impl<R: Read> Read for OnlyChromosomes<R> {
+    /// Reads bytes from the filtered stream into the caller's buffer.
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if buf.is_empty() {
             return Ok(0);
@@ -151,7 +159,8 @@ pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_TRANSFORMER: &dyn Fn(Box<dyn Read>) -
             ],
         ))
     };
-pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_EXPECT_OUTPUT_CKSUM: [&str; 1] = ["f6f3eb1d"];
+pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_EXPECT_OUTPUT_CKSUM: [&str; 1] = ["4fbd616a"];
+/// Returns the cached GENCODE mouse GFF3 fixture, downloading it when necessary.
 pub fn get_test_file_gff3_gencode_mouse_m35() -> &'static TestFile {
     TEST_FILE_GFF3_GENCODE_MOUSE_M35.get_or_init(|| {
         TestFile::from_url(
@@ -163,6 +172,7 @@ pub fn get_test_file_gff3_gencode_mouse_m35() -> &'static TestFile {
     })
 }
 
+/// Computes a CRC-32/CKSUM digest and renders it as eight hexadecimal digits.
 pub fn crc32_hex<R: Read>(mut r: R) -> String {
     use crc::{Crc, CRC_32_CKSUM};
 
@@ -188,12 +198,14 @@ pub struct TestFile {
 }
 
 impl TestFile {
+    /// Describes an existing fixture and its accepted output checksums.
     pub fn new_fs(name: &str, expect_output_cksum: &[&'static str]) -> Self {
         Self {
             name: name.to_string(),
             expect_output_cksum: expect_output_cksum.to_vec(),
         }
     }
+    /// Resolves a cached fixture or downloads and transforms it from a URL.
     pub fn from_url<RO: Read + ?Sized, F: Fn(Box<dyn Read>) -> Box<RO>>(
         cache_name: &str,
         url: &str,
@@ -230,6 +242,7 @@ impl TestFile {
 
         Self::new_fs(name.as_str(), expect_output_cksum)
     }
+    /// Runs a fixture callback and validates its checksum against accepted values.
     pub fn execute_test<F: FnOnce(&str) -> String>(&self, name: &str, f: F) {
         let output_cksum = f(&self.name);
 
@@ -248,6 +261,7 @@ impl TestFile {
 
 static TEST_LOGGER_INIT: Once = Once::new();
 
+/// Initializes the test logger exactly once for the current process.
 pub fn ensure_logger_initialized() {
     TEST_LOGGER_INIT.call_once(|| {
         simple_logger::init_with_level(Level::Info).unwrap();

@@ -97,6 +97,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Verifies parsing of a complete GTF record.
     fn valid_record() {
         let line = "1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";".to_string();
         let result = Record::parse::<b' '>(0, &line);
@@ -114,6 +115,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies that an empty record is rejected.
     fn empty_record() {
         let line = "".to_string();
         let result = Record::parse::<b' '>(0, &line);
@@ -123,6 +125,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies construction of the outer gene sorting key.
     fn outer_layer() {
         let line = "1\thavana\tCDS\t2408530\t2408619\t.\t-\t0\tgene_id \"ENSG00000157911\"; gene_version \"11\"; transcript_id \"ENST00000508384\"; transcript_version \"5\"; exon_number \"3\"; gene_name \"PEX10\"; gene_source \"ensembl_havana\"; gene_biotype \"protein_coding\"; transcript_name \"PEX10-205\"; transcript_source \"havana\"; transcript_biotype \"protein_coding\"; protein_id \"ENSP00000464289\"; protein_version \"1\"; tag \"cds_end_NF\"; tag \"mRNA_end_NF\"; transcript_support_level \"3\";".to_string();
         let record = Record::parse::<b' '>(0, &line).unwrap();

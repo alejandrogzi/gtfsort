@@ -133,6 +133,7 @@ impl Args {
     }
 }
 
+/// Parses CLI arguments, runs the sorter, and reports a terminal status.
 fn main() {
     simple_logger::init_with_level(Level::Info).unwrap();
     let args = Args::parse();
@@ -150,6 +151,7 @@ fn main() {
     );
 }
 
+/// Executes one validated sorting job and logs timing and memory statistics.
 fn run(args: Args) {
     msg();
 

@@ -32,6 +32,7 @@ pub mod c_ffi {
     }
 
     impl From<GtfSortError> for GtfSortErrorFFI {
+        /// Converts a Rust error into an owned C-compatible error value.
         fn from(e: GtfSortError) -> Self {
             match e {
                 GtfSortError::InvalidInput(s) => Self {
@@ -77,6 +78,7 @@ pub mod c_ffi {
     }
 
     impl From<SortAnnotationsJobResult<'_>> for SortAnnotationsJobResultFFI {
+        /// Converts Rust job metrics into an owned C-compatible result value.
         fn from(r: SortAnnotationsJobResult) -> Self {
             Self {
                 input: cstr!(r.input),
@@ -100,6 +102,7 @@ pub mod c_ffi {
     }
 
     impl SortAnnotationsRet {
+        /// Releases heap allocations held by the current tagged result.
         pub fn clear(&mut self) {
             unsafe {
                 match self {
@@ -119,6 +122,7 @@ pub mod c_ffi {
                 }
             }
         }
+        /// Returns whether the tagged result currently contains an allocated value.
         pub fn is_filled(&self) -> bool {
             match self {
                 SortAnnotationsRet::Ok(p) => !p.is_null(),

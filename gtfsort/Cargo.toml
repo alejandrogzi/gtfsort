@@ -1,6 +1,6 @@
 [package]
 name = "gtfsort"
-version = "0.2.4"
+version = "0.2.5"
 authors = [
     "alejandrogzi <alejandrxgzi@gmail.com>",
     "eternal-flame-AD <yume@yumechi.jp>",

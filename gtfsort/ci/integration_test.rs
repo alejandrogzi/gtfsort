@@ -4,6 +4,7 @@ use std::{fs::File, path::PathBuf};
 
 use gtfsort::{current_func, sort_annotations, sort_annotations_string, test_utils::*};
 
+/// Sorts the shared GENCODE fixture under a selected thread and mmap configuration.
 fn test_gencode_m35_subset_with_n_threads(nthreads: usize, prevent_mmap: bool) {
     ensure_logger_initialized();
 
@@ -80,23 +81,27 @@ fn test_gencode_m35_subset_with_n_threads(nthreads: usize, prevent_mmap: bool) {
 }
 
 #[test]
+/// Verifies file sorting with one worker thread.
 fn test_gencode_m35_subset_single_thread() {
     test_gencode_m35_subset_with_n_threads(1, false);
 }
 
 #[test]
+/// Verifies file sorting with all available worker threads.
 fn test_gencode_m35_subset_max_threads() {
     test_gencode_m35_subset_with_n_threads(num_cpus::get(), false);
 }
 
 #[test]
 #[cfg(feature = "mmap")]
+/// Verifies callback sorting with one worker thread and no mmap.
 fn test_gencode_m35_subset_prevent_mmap_single_thread() {
     test_gencode_m35_subset_with_n_threads(1, true);
 }
 
 #[test]
 #[cfg(feature = "mmap")]
+/// Verifies callback sorting with all workers and no mmap.
 fn test_gencode_m35_subset_prevent_mmap_max_threads() {
     test_gencode_m35_subset_with_n_threads(num_cpus::get(), true);
 }

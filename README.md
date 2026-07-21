@@ -8,13 +8,13 @@
     <a href="https://img.shields.io/badge/version-0.1.0dev-green" target="_blank">
       <img alt="Version Badge" src="https://img.shields.io/badge/version-0.2.4-green">
     </a>
-    <a href="https://crates.io/crates/chaintools" target="_blank">
+    <a href="https://crates.io/crates/gtfsort" target="_blank">
       <img alt="Crates.io Version" src="https://img.shields.io/crates/v/gtfsort">
     </a>
-    <a href="https://github.com/alejandrogzi/chaintools" target="_blank">
+    <a href="https://github.com/alejandrogzi/gtfsort" target="_blank">
       <img alt="GitHub License" src="https://img.shields.io/github/license/alejandrogzi/gtfsort?color=blue">
     </a>
-    <a href="https://crates.io/crates/chaintools" target="_blank">
+    <a href="https://crates.io/crates/gtfsort" target="_blank">
       <img alt="Crates.io Total Downloads" src="https://img.shields.io/crates/d/gtfsort">
     </a>
   </p>

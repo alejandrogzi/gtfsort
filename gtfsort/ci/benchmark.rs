@@ -48,6 +48,7 @@ pub struct HyperfineCall {
     pub extras: Vec<String>,
 }
 
+/// Runs Git with captured standard output and returns either text or exit status.
 fn run_git(args: &[&str]) -> Result<String, ExitStatus> {
     let output = Command::new("git")
         .args(args)
@@ -65,6 +66,7 @@ fn run_git(args: &[&str]) -> Result<String, ExitStatus> {
 }
 
 impl Default for HyperfineCall {
+    /// Creates a benchmark command with conservative warmup and run defaults.
     fn default() -> Self {
         Self {
             warmup: 3,
@@ -81,6 +83,7 @@ impl Default for HyperfineCall {
 }
 
 impl HyperfineCall {
+    /// Builds and executes the configured `hyperfine` invocation.
     pub fn invoke(&self) -> ExitStatus {
         let mut command = Command::new("hyperfine");
 
@@ -115,6 +118,7 @@ impl HyperfineCall {
     }
 }
 
+/// Posts benchmark results to the current GitHub commit when CI credentials exist.
 fn report_to_github(
     result: Result<(String, String), Box<dyn std::error::Error>>,
     stdout: &Path,
@@ -194,6 +198,7 @@ fn report_to_github(
     Ok(())
 }
 
+/// Downloads the benchmark fixture and compares the current code with a reference.
 fn benchmark() -> Result<(String, String), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -240,6 +245,7 @@ fn benchmark() -> Result<(String, String), Box<dyn std::error::Error>> {
     ))
 }
 
+/// Runs the benchmark workflow and reports its outcome.
 fn main() {
     let stdout = Path::new(STDOUT_FILE);
 

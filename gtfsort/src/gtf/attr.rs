@@ -26,6 +26,7 @@ macro_rules! extract_field {
 }
 
 #[inline(always)]
+/// Splits a byte slice and removes repeated leading trim bytes from each field.
 fn split_and_trim_bytes<const BY: u8, const TRIM: u8>(bytes: &[u8]) -> impl Iterator<Item = &[u8]> {
     bytes.split(|b| *b == BY).map(|b| {
         let mut idx = 0;
@@ -45,6 +46,7 @@ pub struct Attribute<'a> {
 }
 
 impl<'a> Attribute<'a> {
+    /// Parses the sorting-relevant attributes from a GTF or GFF attribute column.
     pub fn parse<const SEP: u8>(line: &'a str) -> Result<Attribute<'a>, ParseError> {
         if !line.is_empty() {
             let field_bytes = split_and_trim_bytes::<b';', b' '>(line.trim_end().as_bytes());
@@ -73,21 +75,25 @@ impl<'a> Attribute<'a> {
     }
 
     #[inline(always)]
+    /// Returns the required gene identifier.
     pub fn gene_id(&self) -> &'a str {
         self.gene_id
     }
 
     #[inline(always)]
+    /// Returns the transcript identifier, or `"0"` when it is absent.
     pub fn transcript_id(&self) -> &'a str {
         self.transcript_id
     }
 
     #[inline(always)]
+    /// Returns the exon number, or `"z"` when it is absent.
     pub fn exon_number(&self) -> &'a str {
         self.exon_number
     }
 
     #[inline(always)]
+    /// Returns the exon identifier, or `"0"` when it is absent.
     pub fn exon_id(&self) -> &'a str {
         self.exon_id
     }
@@ -117,6 +123,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Verifies parsing of all supported GTF sorting attributes.
     fn valid_attributes() {
         let input = "gene_id \"ABC\"; transcript_id \"XYZ\"; exon_number \"1\"; exon_id \"123\";"
             .to_string();
@@ -129,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies that a missing gene identifier is rejected.
     fn invalid_attributes() {
         let input = "transcript_id \"XYZ\"; exon_number \"1\";".to_string();
         let result = Attribute::parse::<b' '>(&input);
@@ -137,6 +145,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies byte-level extraction from a GENCODE gene attribute list.
     fn get_gencode_pair_from_gene_line() {
         let line = "gene_id \"ENSG00000290825.1\"; gene_type \"lncRNA\"; gene_name \"DDX11L2\"; level 2; tag \"overlaps_pseudogene\";".to_string();
 
@@ -166,6 +175,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies byte-level extraction from a GENCODE exon attribute list.
     fn get_gencode_pair_from_exon_line() {
         let line = "gene_id \"ENSG00000290825.1\"; transcript_id \"ENST00000456328.2\"; gene_type \"lncRNA\"; gene_name \"DDX11L2\"; transcript_type \"lncRNA\"; transcript_name \"DDX11L2-202\"; exon_number 2; exon_id \"ENSE00003582793.1\"; level 2; transcript_support_level \"1\"; tag \"basic\"; tag \"Ensembl_canonical\"; havana_transcript \"OTTHUMT00000362751.1\";".to_string();
 
@@ -223,6 +233,7 @@ mod tests {
     }
 
     #[test]
+    /// Verifies parsing of equals-delimited GFF attributes.
     fn parse_gff_line() {
         let line = "chr1\tHAVANA\ttranscript\t11869\t14409\t.\t+\t.\tID=ENST00000450305.2;Parent=ENSG00000223972.6;gene_id=ENSG00000223972.6;transcript_id=ENST00000450305.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=transcribed_unprocessed_pseudogene;transcript_name=DDX11L1-201;level=2;transcript_support_level=NA;hgnc_id=HGNC:37102;ont=PGO:0000005,PGO:0000019;tag=basic,Ensembl_canonical;havana_gene=OTTHUMG00000000961.2;havana_transcript=OTTHUMT00000002844.2".to_string();
         let attr = Attribute::parse::<b'='>(&line).unwrap();
