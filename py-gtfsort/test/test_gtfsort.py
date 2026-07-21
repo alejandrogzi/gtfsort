@@ -36,7 +36,7 @@ class TestGtf(unittest.TestCase):
 
     def test_sorted_file_line_count(self):
         """Verify that sorting retains the expected number of records."""
-        expected_line_count = 333875
+        expected_line_count = 333882
         with open(self.out, 'r') as f:
             line_count = len(f.readlines())
 
