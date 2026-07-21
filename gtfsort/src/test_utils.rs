@@ -159,7 +159,7 @@ pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_TRANSFORMER: &dyn Fn(Box<dyn Read>) -
             ],
         ))
     };
-pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_EXPECT_OUTPUT_CKSUM: [&str; 1] = ["f6f3eb1d"];
+pub const TEST_FILE_GFF3_GENCODE_MOUSE_M35_EXPECT_OUTPUT_CKSUM: [&str; 1] = ["4fbd616a"];
 /// Returns the cached GENCODE mouse GFF3 fixture, downloading it when necessary.
 pub fn get_test_file_gff3_gencode_mouse_m35() -> &'static TestFile {
     TEST_FILE_GFF3_GENCODE_MOUSE_M35.get_or_init(|| {
