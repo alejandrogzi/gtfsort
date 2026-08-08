@@ -704,7 +704,7 @@ pub fn max_mem_usage_mb() -> f64 {
 
 /// Prints the command-line program banner and version.
 pub fn msg() {
-    println!(
+    eprintln!(
         "{}\n{}\n{}",
         "\n##### GTFSORT #####".bright_purple().bold(),
         indoc!(

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.6 - 2026-08-08
+
+- `dd7e9bb` feat: streamable I/O via stdin/stdout + gzip + v0.2.6 bump — alejandrogzi
+- `e44b8b4` docs: README streamable I/O usage — alejandrogzi
+
 ## 0.2.5 - 2026-07-21
 
 - `c8ae850` BREAKING CHANGE: v0.2.5 -> preserve metadata lines + docs + changelog — alejandrogzi

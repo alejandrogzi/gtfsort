@@ -1,7 +1,7 @@
 
 <p align="center">
   <h1 align="center">
-    gtfsort
+    <code>gtfsort</code>
   </h1>
 
   <p align="center">
@@ -41,18 +41,26 @@ While current tools (most of them GFF3-focused) have been recommended for sortin
 
 ## Usage
 ### Binary
-``` rust
-Usage: gtfsort -i <GTF> -o <OUTPUT> [-t <THREADS>]
-
-Arguments:
-    -i, --input <GTF>: unsorted GTF file
-    -o, --output <OUTPUT>: sorted GTF file
+``` text
+Usage: gtfsort [OPTIONS]
 
 Options:
-    -t, --threads <THREADS>: number of threads [default: your max ncpus]
-    --help: print help
-    --version: print version
+    -i, --input <UNSORTED>   Input GTF/GFF path; stdin when omitted or `-`
+    -o, --output <OUTPUT>    Output GTF/GFF path; stdout when omitted or `-`
+    -t, --threads <THREADS>  Number of threads [default: your max ncpus]
+    -h, --help               Print help
+    -V, --version            Print version
 ```
+
+`gtfsort` can be used directly in a pipeline:
+
+``` bash
+sometool -i my.gtf | gtfsort | another-tool - -o gtf-sorted-and-checked.gtf
+```
+
+GTF is assumed when piped input has no recognizable format marker. GFF3 is
+detected from its header or attributes. Named `.gz` inputs and outputs remain
+gzip-compressed; stdin and stdout contain plain annotation text.
 
 ### Library
 ``` rust
