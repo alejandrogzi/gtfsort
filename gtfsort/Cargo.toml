@@ -1,6 +1,6 @@
 [package]
 name = "gtfsort"
-version = "0.2.5"
+version = "0.2.6"
 authors = [
     "alejandrogzi <alejandrxgzi@gmail.com>",
     "eternal-flame-AD <yume@yumechi.jp>",
@@ -21,7 +21,7 @@ colored = { version = "3" }
 natord = "1.0.9"
 indoc = "2.0.4"
 log = "0.4.14"
-simple_logger = "5.0.0"
+simple_logger = { version = "5.0.0", features = ["stderr"] }
 thiserror = "2.0"
 rayon = "1.8.0"
 num_cpus = "1.16.0"
@@ -78,6 +78,10 @@ required-features = ["mmap", "benchmark"]
 name = "integration_test"
 path = "ci/integration_test.rs"
 required-features = ["testing"]
+
+[[test]]
+name = "cli_test"
+path = "ci/cli_test.rs"
 
 [build-dependencies]
 cbindgen = "0.26.0"
